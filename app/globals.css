@@ -124,16 +124,6 @@ button { color: inherit; touch-action: manipulation; }
   line-height: 1.75;
   max-width: 520px;
 }
-.balance-note {
-  margin-top: 34px;
-  border-left: 3px solid var(--gold);
-  background: rgba(210,174,99,.08);
-  padding: 16px 18px;
-  max-width: 520px;
-}
-.balance-note b, .balance-note span { display: block; }
-.balance-note b { color: var(--gold-bright); margin-bottom: 5px; }
-.balance-note span { color: #a9a398; font-size: 13px; line-height: 1.55; }
 .setup-panel {
   padding: clamp(30px, 5vw, 64px);
   align-self: center;
@@ -520,7 +510,6 @@ button { color: inherit; touch-action: manipulation; }
   .setup-copy { padding: 42px 18px 28px; border-right: 0; border-bottom: 1px solid var(--line); }
   .setup-copy h1 { font-size: 43px; }
   .lead { font-size: 16px; line-height: 1.65; }
-  .balance-note { margin-top: 24px; }
   .setup-panel { padding: 26px 14px 42px; max-height: none; }
   .panel-heading { align-items: center; }
   .panel-heading h2 { font-size: 23px; }

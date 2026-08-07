@@ -379,10 +379,6 @@ export default function Home() {
             <p className="eyebrow">SOLO DICE RPG</p>
             <h1>파티를 만들고<br /><em>끝없는 스테이지</em>로</h1>
             <p className="lead">물리, 민첩, 마법 속성과 탱커, 딜러, 힐러 직업을 조합해 3인 또는 5인 파티를 구성하세요. 목표는 단순합니다. 더 깊이, 더 오래 버티기.</p>
-            <div className="balance-note">
-              <b>밸런스 조정됨</b>
-              <span>적 수는 완만히 증가하고, 장비 성장은 오래 버티는 쪽으로 정리했습니다.</span>
-            </div>
           </div>
 
           <div className="setup-panel">
