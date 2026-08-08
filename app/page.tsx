@@ -109,7 +109,7 @@ const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const hpBar = (current: number, max: number) => `${clamp((current / max) * 100, 0, 100)}%`;
 const xpToNext = (level: number) => Math.floor(18 + level * level * 5.5);
-const hpForLevel = (level: number) => 10 + Math.floor((level - 1) * 2.4 + Math.max(0, level - 6) * 0.7);
+const hpForLevel = (level: number) => 10 + Math.floor((level - 1) * 2.8 + Math.max(0, level - 6) * 0.8);
 const artifactValueLabel = (artifact: Artifact) => {
   if (artifact.kind === "xp") return `x${artifact.value.toFixed(2)}`;
   if (artifact.kind === "revive") return `HP ${artifact.value}`;
@@ -131,7 +131,7 @@ const makeArtifact = (stage: number, wave: number): Artifact => {
     vigor: `최대 체력 +${value}`,
     shield: `얻는 실드 +${value}`,
     strike: `공격 피해 +${value}`,
-    mending: `회복량 +${value}`,
+    mending: `장착자가 주는 회복량 +${value}`,
     ward: `받는 피해 ${value} 감소`,
     focus: `최종 주사위 +${value}`,
   };
@@ -182,8 +182,8 @@ const enemiesForWave = (stage: number, wave: number, totalWaves: number, partySi
   const count = clamp(baseCount + Math.floor((wave - 1) / 2) + (stage > 7 ? 1 : 0), 1, partySize === 3 ? 3 : 4);
   return Array.from({ length: count }, (_, index) => {
     const elite = wave === totalWaves && index === count - 1 ? 1 : 0;
-    const hp = Math.floor(6 + stage * 2.4 + wave * 1.3 + elite * (4 + stage));
-    const attack = Math.floor(2 + stage * 1.15 + wave * 0.6 + elite * 1.5);
+    const hp = Math.floor(5 + stage * 2.05 + wave * 1.05 + elite * (3 + stage * 0.7));
+    const attack = Math.max(1, Math.floor(1.4 + stage * 0.85 + wave * 0.45 + elite));
     return {
       id: `enemy-${stage}-${wave}-${index}-${Math.random()}`,
       name: `${ENEMY_NAMES[(stage + wave + index) % ENEMY_NAMES.length]} ${wave}-${index + 1}`,
@@ -410,7 +410,7 @@ export default function Home() {
   };
 
   const dropArtifact = (reason: string, guaranteed = false) => {
-    if (!guaranteed && randomInt(1, 100) > 38) return;
+    if (!guaranteed && randomInt(1, 100) > 45) return;
     const artifact = makeArtifact(stage, wave);
     setArtifacts((current) => [artifact, ...current].slice(0, 18));
     appendLog(`${reason}: 유물 획득 - ${artifact.name} ${artifactValueLabel(artifact)}`);
@@ -519,7 +519,7 @@ export default function Home() {
       guardCharges: hero.role === "tank" ? hero.perks[3] : 0,
       reviveCharges: hero.role === "healer" ? hero.perks[3] : 0,
     })));
-    appendLog(`스테이지 ${nextStageNumber} 진입. 체력은 회복되지 않습니다.`);
+    appendLog(`스테이지 ${nextStageNumber} 진입.`);
     if (pendingPerks.length > 0) setPhase("perk");
     return true;
   };
