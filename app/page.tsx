@@ -6,6 +6,7 @@ type Affinity = "physical" | "agility" | "magic";
 type Role = "tank" | "dealer" | "healer";
 type Phase = "setup" | "combat" | "perk" | "gameover";
 type HealerMode = "heal" | "damage" | "xp";
+type ArtifactKind = "xp" | "revive" | "vigor" | "shield" | "strike" | "mending" | "ward" | "focus";
 
 type PerkRanks = Record<1 | 2 | 3, 0 | 1 | 2>;
 
@@ -23,6 +24,7 @@ type Hero = {
   reviveCharges: number;
   guardCharges: number;
   guarded: boolean;
+  artifacts: [string | null, string | null];
 };
 
 type DraftHero = Pick<Hero, "name" | "affinity" | "role">;
@@ -46,6 +48,15 @@ type RollState = {
   value: number;
   detail: string;
   mode: "normal" | "guard";
+};
+
+type Artifact = {
+  id: string;
+  kind: ArtifactKind;
+  name: string;
+  value: number;
+  text: string;
+  consumed?: boolean;
 };
 
 const AFFINITIES: Record<Affinity, { label: string; die: string; mark: string; desc: string }> = {
@@ -83,12 +94,56 @@ const ENEMY_NAMES = ["그늘 병사", "녹슨 기사", "공허 추적자", "잿�
 const AFFINITY_KEYS: Affinity[] = ["physical", "agility", "magic"];
 const ROLE_KEYS: Role[] = ["tank", "dealer", "healer"];
 const PERK_LEVELS = [5, 10, 15, 20];
+const ARTIFACT_NAMES: Record<ArtifactKind, string> = {
+  xp: "기록자의 깃털",
+  revive: "꺼지지 않는 심지",
+  vigor: "거인의 심장",
+  shield: "수호자의 파편",
+  strike: "붉은 송곳니",
+  mending: "새벽의 잔",
+  ward: "흐린 거울",
+  focus: "별빛 주사위",
+};
 
 const randomInt = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 const hpBar = (current: number, max: number) => `${clamp((current / max) * 100, 0, 100)}%`;
 const xpToNext = (level: number) => Math.floor(18 + level * level * 5.5);
 const hpForLevel = (level: number) => 10 + Math.floor((level - 1) * 2.4 + Math.max(0, level - 6) * 0.7);
+const artifactValueLabel = (artifact: Artifact) => {
+  if (artifact.kind === "xp") return `x${artifact.value.toFixed(2)}`;
+  if (artifact.kind === "revive") return `HP ${artifact.value}`;
+  return `+${artifact.value}`;
+};
+const makeArtifact = (stage: number, wave: number): Artifact => {
+  const kind = (["xp", "revive", "vigor", "shield", "strike", "mending", "ward", "focus"] as ArtifactKind[])[randomInt(0, 7)];
+  const tier = Math.max(1, Math.floor((stage + wave) / 3));
+  let value = 1;
+  if (kind === "xp") value = Number((1.12 + randomInt(0, 10) / 100 + tier * 0.02).toFixed(2));
+  else if (kind === "revive") value = randomInt(2 + tier, 4 + tier * 2);
+  else if (kind === "vigor") value = randomInt(3 + tier, 5 + tier * 2);
+  else if (kind === "ward") value = randomInt(1 + Math.floor(tier / 2), 2 + tier);
+  else value = randomInt(1 + Math.floor(tier / 2), 2 + tier);
+
+  const text: Record<ArtifactKind, string> = {
+    xp: `경험치 획득 ${value.toFixed(2)}배`,
+    revive: `사망 시 즉시 HP ${value}로 부활 후 폐기`,
+    vigor: `최대 체력 +${value}`,
+    shield: `얻는 실드 +${value}`,
+    strike: `공격 피해 +${value}`,
+    mending: `회복량 +${value}`,
+    ward: `받는 피해 ${value} 감소`,
+    focus: `최종 주사위 +${value}`,
+  };
+
+  return {
+    id: `artifact-${Date.now()}-${Math.random()}`,
+    kind,
+    name: ARTIFACT_NAMES[kind],
+    value,
+    text: text[kind],
+  };
+};
 const playTone = (frequency: number, duration = 0.08, volume = 0.025) => {
   if (typeof window === "undefined") return;
   const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -155,7 +210,19 @@ const createHero = (draft: DraftHero, index: number): Hero => ({
   reviveCharges: 0,
   guardCharges: 0,
   guarded: false,
+  artifacts: [null, null],
 });
+
+const heroArtifacts = (hero: Hero, artifacts: Artifact[]) =>
+  hero.artifacts.map((id) => artifacts.find((artifact) => artifact.id === id)).filter((artifact): artifact is Artifact => Boolean(artifact));
+
+const artifactSum = (hero: Hero, artifacts: Artifact[], kind: ArtifactKind) =>
+  heroArtifacts(hero, artifacts).filter((artifact) => artifact.kind === kind).reduce((sum, artifact) => sum + artifact.value, 0);
+
+const xpMultiplierOf = (hero: Hero, artifacts: Artifact[]) =>
+  heroArtifacts(hero, artifacts).filter((artifact) => artifact.kind === "xp").reduce((multi, artifact) => multi * artifact.value, 1);
+
+const maxHpOf = (hero: Hero, artifacts: Artifact[]) => hero.maxHp + artifactSum(hero, artifacts, "vigor");
 
 const applyLevelUps = (hero: Hero, gained: number): { hero: Hero; pending: PendingPerk[]; notes: string[] } => {
   const next = { ...hero, xp: hero.xp + gained };
@@ -182,6 +249,7 @@ export default function Home() {
   const [drafts, setDrafts] = useState<DraftHero[]>(() => makeDrafts(3));
   const [heroes, setHeroes] = useState<Hero[]>([]);
   const [enemies, setEnemies] = useState<Enemy[]>([]);
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [stage, setStage] = useState(1);
   const [wave, setWave] = useState(1);
   const [totalWaves, setTotalWaves] = useState(2);
@@ -221,6 +289,7 @@ export default function Home() {
     const nextStage = makeStage(1, partySize);
     setHeroes(party);
     setEnemies(nextStage.enemies);
+    setArtifacts([]);
     setStage(1);
     setWave(1);
     setTotalWaves(nextStage.totalWaves);
@@ -243,6 +312,7 @@ export default function Home() {
     setDrafts(makeDrafts(partySize));
     setHeroes([]);
     setEnemies([]);
+    setArtifacts([]);
     setStage(1);
     setWave(1);
     setActed([]);
@@ -283,7 +353,7 @@ export default function Home() {
       base = lastRoll ?? 1;
       detail = lastRoll === null ? "복사값 없음: 1" : `직전값 ${lastRoll}`;
     }
-    const value = base + hero.level - 1;
+    const value = base + hero.level - 1 + artifactSum(hero, artifacts, "focus");
     return { value, detail: `${detail} + 레벨 ${hero.level - 1}` };
   };
 
@@ -312,13 +382,46 @@ export default function Home() {
     appendLog(`${activeHero.name}이 수호막을 펼쳤습니다.`);
   };
 
+  const dropArtifact = (reason: string, guaranteed = false) => {
+    if (!guaranteed && randomInt(1, 100) > 38) return;
+    const artifact = makeArtifact(stage, wave);
+    setArtifacts((current) => [artifact, ...current].slice(0, 18));
+    appendLog(`${reason}: 유물 획득 - ${artifact.name} ${artifactValueLabel(artifact)}`);
+    playTone(680, 0.12, 0.025);
+  };
+
+  const equipArtifact = (heroId: string, artifactId: string, slot: 0 | 1) => {
+    if (phase !== "combat" || !artifactId) return;
+    setHeroes((current) => current.map((hero) => {
+      const nextSlots: [string | null, string | null] = hero.artifacts.includes(artifactId)
+        ? hero.artifacts.map((id) => id === artifactId ? null : id) as [string | null, string | null]
+        : [...hero.artifacts] as [string | null, string | null];
+      if (hero.id === heroId) {
+        nextSlots[slot] = artifactId;
+        const nextMax = maxHpOf({ ...hero, artifacts: nextSlots }, artifacts);
+        return { ...hero, artifacts: nextSlots, hp: Math.min(hero.hp, nextMax) };
+      }
+      return { ...hero, artifacts: nextSlots };
+    }));
+  };
+
+  const unequipArtifact = (heroId: string, slot: 0 | 1) => {
+    if (phase !== "combat") return;
+    setHeroes((current) => current.map((hero) => {
+      if (hero.id !== heroId) return hero;
+      const nextSlots: [string | null, string | null] = [...hero.artifacts] as [string | null, string | null];
+      nextSlots[slot] = null;
+      return { ...hero, artifacts: nextSlots, hp: Math.min(hero.hp, maxHpOf({ ...hero, artifacts: nextSlots }, artifacts)) };
+    }));
+  };
+
   const gainPartyXp = (amount: number, reason: string, dealerBonus?: { heroId: string; amount: number }) => {
     const newPending: PendingPerk[] = [];
     const levelNotes: string[] = [];
     setHeroes((current) => current.map((hero) => {
       const aliveShare = hero.hp > 0 ? amount : Math.floor(amount * 0.45);
       const bonus = dealerBonus?.heroId === hero.id ? dealerBonus.amount : 0;
-      const result = applyLevelUps(hero, aliveShare + bonus);
+      const result = applyLevelUps(hero, Math.floor((aliveShare + bonus) * xpMultiplierOf(hero, artifacts)));
       newPending.push(...result.pending);
       levelNotes.push(...result.notes);
       return result.hero;
@@ -356,6 +459,7 @@ export default function Home() {
       bonus = { heroId: killer.id, amount: Math.floor(killXp * (killer.perks[3] === 1 ? 0.8 : 1.5)) };
     }
     gainPartyXp(killXp, "웨이브 정리", bonus);
+    dropArtifact("웨이브 보상");
 
     if (wave < totalWaves) {
       const nextWave = wave + 1;
@@ -369,6 +473,7 @@ export default function Home() {
 
     const clearXp = Math.floor(10 + stage * 5 + totalWaves * 2);
     gainPartyXp(clearXp, `스테이지 ${stage} 클리어`);
+    dropArtifact("스테이지 보상", true);
     const nextStageNumber = stage + 1;
     const nextStage = makeStage(nextStageNumber, partySize);
     setStage(nextStageNumber);
@@ -400,7 +505,7 @@ export default function Home() {
     }
 
     if (activeHero.role === "tank") {
-      let shield = rolled.value;
+      let shield = rolled.value + artifactSum(activeHero, artifacts, "shield");
       if (activeHero.perks[2] === 1) shield = Math.floor(shield * 1.5);
       if (activeHero.perks[2] === 2) shield = shield * 2;
       const activeIndex = heroes.findIndex((hero) => hero.id === activeHero.id);
@@ -417,7 +522,7 @@ export default function Home() {
       const target = livingEnemies.find((enemy) => enemy.id === selectedEnemy) ?? livingEnemies[0];
       if (!target) return;
       const multiplier = activeHero.perks[2] === 2 ? 2 : activeHero.perks[2] === 1 ? 1.5 : 1;
-      const damage = Math.floor(rolled.value * multiplier);
+      const damage = Math.floor(rolled.value * multiplier) + artifactSum(activeHero, artifacts, "strike");
       let nextEnemies = enemies.map((enemy) => enemy.id === target.id ? { ...enemy, hp: Math.max(0, enemy.hp - damage) } : enemy);
       const splashCount = activeHero.perks[1];
       if (splashCount > 0) {
@@ -437,9 +542,10 @@ export default function Home() {
       if (healerMode === "damage" && activeHero.perks[1] >= 1) {
         const target = livingEnemies.find((enemy) => enemy.id === selectedEnemy) ?? livingEnemies[0];
         if (!target) return;
-        const nextEnemies = enemies.map((enemy) => enemy.id === target.id ? { ...enemy, hp: Math.max(0, enemy.hp - rolled.value) } : enemy);
+        const damage = rolled.value + artifactSum(activeHero, artifacts, "strike");
+        const nextEnemies = enemies.map((enemy) => enemy.id === target.id ? { ...enemy, hp: Math.max(0, enemy.hp - damage) } : enemy);
         setEnemies(nextEnemies);
-        appendLog(`${activeHero.name}이 어둠의 치유로 ${target.name}에게 ${rolled.value} 피해.`);
+        appendLog(`${activeHero.name}이 어둠의 치유로 ${target.name}에게 ${damage} 피해.`);
         if (!checkWaveEnd(nextEnemies, activeHero)) endHeroAction();
         return;
       }
@@ -457,14 +563,16 @@ export default function Home() {
 
       const targetLimit = activeHero.perks[2] === 2 ? 3 : activeHero.perks[2] === 1 ? 2 : 1;
       const targets = multiTargets.length ? multiTargets.slice(0, targetLimit) : [selectedAlly ?? activeHero.id];
-      setHeroes((current) => current.map((hero) => targets.includes(hero.id) && hero.hp > 0 ? { ...hero, hp: Math.min(hero.maxHp, hero.hp + rolled.value) } : hero));
-      appendLog(`${activeHero.name} 회복 ${rolled.value} (${targets.length}명).`);
+      const healAmount = rolled.value + artifactSum(activeHero, artifacts, "mending");
+      setHeroes((current) => current.map((hero) => targets.includes(hero.id) && hero.hp > 0 ? { ...hero, hp: Math.min(maxHpOf(hero, artifacts), hero.hp + healAmount) } : hero));
+      appendLog(`${activeHero.name} 회복 ${healAmount} (${targets.length}명).`);
       endHeroAction();
     }
   };
 
   const enemyTurn = () => {
     let nextHeroes = heroes.map((hero) => ({ ...hero }));
+    let nextArtifacts = artifacts.map((artifact) => ({ ...artifact }));
     const topTarget = () => nextHeroes.find((hero) => hero.hp > 0);
     const attackLogs: string[] = [];
 
@@ -477,23 +585,36 @@ export default function Home() {
         continue;
       }
       const absorbed = Math.min(target.shield, enemy.attack);
-      const damage = enemy.attack - absorbed;
-      nextHeroes = nextHeroes.map((hero) => hero.id === target.id ? {
-        ...hero,
-        shield: hero.shield - absorbed,
-        hp: Math.max(0, hero.hp - damage),
-      } : hero);
-      attackLogs.push(`${enemy.name} -> ${target.name} ${damage} 피해.`);
+      const reduced = Math.max(0, enemy.attack - absorbed - artifactSum(target, nextArtifacts, "ward"));
+      let revived = false;
+      nextHeroes = nextHeroes.map((hero) => {
+        if (hero.id !== target.id) return hero;
+        const damagedHero = { ...hero, shield: hero.shield - absorbed, hp: Math.max(0, hero.hp - reduced) };
+        if (damagedHero.hp > 0) return damagedHero;
+        const reviveArtifact = heroArtifacts(hero, nextArtifacts).find((artifact) => artifact.kind === "revive");
+        if (!reviveArtifact) return damagedHero;
+        revived = true;
+        nextArtifacts = nextArtifacts.filter((artifact) => artifact.id !== reviveArtifact.id);
+        return {
+          ...damagedHero,
+          hp: Math.min(maxHpOf(damagedHero, nextArtifacts), reviveArtifact.value),
+          artifacts: damagedHero.artifacts.map((id) => id === reviveArtifact.id ? null : id) as [string | null, string | null],
+        };
+      });
+      if (revived) attackLogs.push(`${target.name}의 유물이 깨지며 즉시 부활.`);
+      attackLogs.push(`${enemy.name} -> ${target.name} ${reduced} 피해.`);
     }
 
     if (nextHeroes.every((hero) => hero.hp <= 0)) {
       setHeroes(nextHeroes);
+      setArtifacts(nextArtifacts);
       setPhase("gameover");
       setLog((current) => [`여정 종료. 스테이지 ${stage}, 웨이브 ${wave}에서 전멸.`, ...attackLogs.reverse(), ...current].slice(0, 12));
       return;
     }
 
     setHeroes(nextHeroes);
+    setArtifacts(nextArtifacts);
     setActed([]);
     setTurnStarted(false);
     setSelectedHero(nextHeroes.find((hero) => hero.hp > 0)?.id ?? null);
@@ -603,12 +724,39 @@ export default function Home() {
                     <div className={`hero-avatar affinity-${hero.affinity}`}>{AFFINITIES[hero.affinity].mark}<small>{ROLES[hero.role].mark}</small></div>
                     <div className="hero-info">
                       <div className="hero-name"><h3>{hero.name}</h3><span>Lv.{hero.level} {AFFINITIES[hero.affinity].label} · {ROLES[hero.role].label}</span></div>
-                      <div className="bar-row"><div className="hp-track"><i style={{ width: hpBar(hero.hp, hero.maxHp) }} /></div><b>{hero.hp}/{hero.maxHp}</b>{hero.shield > 0 && <span className="shield">실드 {hero.shield}</span>}</div>
+                      <div className="bar-row"><div className="hp-track"><i style={{ width: hpBar(hero.hp, maxHpOf(hero, artifacts)) }} /></div><b>{hero.hp}/{maxHpOf(hero, artifacts)}</b>{hero.shield > 0 && <span className="shield">실드 {hero.shield}</span>}</div>
                       <div className="xp-line">XP {hero.xp}/{xpToNext(hero.level)} · 특전 {hero.perks[1]}/{hero.perks[2]}/{hero.perks[3]}</div>
                     </div>
                     {canReorder && <div className="order-buttons"><button onClick={() => moveHero(hero.id, -1)} disabled={index === 0}>↑</button><button onClick={() => moveHero(hero.id, 1)} disabled={index === heroes.length - 1}>↓</button></div>}
                   </article>
                 ))}
+              </div>
+              <div className="artifact-panel">
+                <div className="section-title compact"><div><span>RELIC</span><h2>유물</h2></div><small>턴 중 교체 가능</small></div>
+                <div className="artifact-slots">
+                  {heroes.map((hero) => (
+                    <div className="artifact-hero" key={`artifact-${hero.id}`}>
+                      <b>{hero.name}</b>
+                      {[0, 1].map((slot) => {
+                        const artifact = artifacts.find((item) => item.id === hero.artifacts[slot]);
+                        return <button key={slot} className={artifact ? "filled" : ""} onClick={() => unequipArtifact(hero.id, slot as 0 | 1)}>
+                          {artifact ? <><span>{artifact.name}</span><small>{artifact.text}</small></> : <><span>빈 슬롯</span><small>클릭한 유물을 장착</small></>}
+                        </button>;
+                      })}
+                    </div>
+                  ))}
+                </div>
+                <div className="artifact-bag">
+                  {artifacts.length === 0 && <p>아직 발견한 유물이 없습니다.</p>}
+                  {artifacts.map((artifact) => {
+                    const equipped = heroes.some((hero) => hero.artifacts.includes(artifact.id));
+                    return <div className={`artifact-card ${equipped ? "equipped" : ""}`} key={artifact.id}>
+                      <b>{artifact.name}</b>
+                      <span>{artifact.text}</span>
+                      <div>{heroes.map((hero) => <button key={hero.id} onClick={() => equipArtifact(hero.id, artifact.id, hero.artifacts[0] ? 1 : 0)}>{hero.name}</button>)}</div>
+                    </div>;
+                  })}
+                </div>
               </div>
             </section>
 
@@ -697,7 +845,7 @@ export default function Home() {
               <article><b>순서</b><p>위 캐릭터부터 행동하고, 적은 항상 가장 위의 생존 캐릭터를 공격합니다. 아무도 행동 전이면 순서 변경 가능.</p></article>
               <article><b>직업</b><p>탱커는 본인 실드, 딜러는 주사위만큼 공격, 힐러는 아군 회복. 패스와 장비는 없습니다.</p></article>
               <article><b>성장</b><p>막타, 웨이브, 스테이지로 경험치를 얻고 레벨마다 최종 주사위와 최대 체력이 증가합니다.</p></article>
-              <article><b>특전</b><p>5/10/15/20레벨에 직업별 특전을 선택합니다. 각 특전은 1단계 뒤 2단계로 강화됩니다.</p></article>
+              <article><b>유물</b><p>유물은 캐릭터당 2개까지 장착합니다. 내 턴에는 언제든 교체 가능하며, 대부분 패시브로 작동합니다.</p></article>
             </div>
             <button className="primary-button" onClick={() => setShowRules(false)}>닫기</button>
           </section>

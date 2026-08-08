@@ -234,6 +234,8 @@ button:not(:disabled):active { transform: translateY(1px); }
 .party-column { border-right: 1px solid var(--line); }
 .chronicle { border-left: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
 .section-title { display: flex; justify-content: space-between; align-items: end; gap: 10px; margin: 0 2px 16px; }
+.section-title.compact { margin-top: 18px; margin-bottom: 10px; }
+.section-title.compact h2 { font-size: 18px; }
 .section-title h2, .battlefield-head h2 { font-size: 21px; }
 .section-title small { color: #918d82; font-size: 11px; white-space: nowrap; }
 .hero-list { display: grid; gap: 10px; }
@@ -331,6 +333,101 @@ button:not(:disabled):active { transform: translateY(1px); }
   font-size: 14px;
 }
 .order-buttons button:disabled { opacity: .28; cursor: not-allowed; }
+.artifact-panel {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 2px;
+}
+.artifact-slots {
+  display: grid;
+  gap: 8px;
+  max-height: 230px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+.artifact-hero {
+  border: 1px solid #34372f;
+  background: #181a15;
+  padding: 9px;
+}
+.artifact-hero > b {
+  display: block;
+  font: 13px Georgia, serif;
+  margin-bottom: 7px;
+}
+.artifact-hero button {
+  width: 100%;
+  min-height: 42px;
+  border: 1px dashed #4c4f44;
+  background: #13150f;
+  color: #a9a397;
+  text-align: left;
+  padding: 7px 8px;
+  cursor: pointer;
+  margin-top: 5px;
+}
+.artifact-hero button.filled {
+  border-style: solid;
+  border-color: #786741;
+  color: var(--gold-bright);
+}
+.artifact-hero button span,
+.artifact-hero button small {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.artifact-hero button span { font-size: 12px; }
+.artifact-hero button small { color: #8e887b; font-size: 10px; margin-top: 2px; }
+.artifact-bag {
+  display: grid;
+  gap: 7px;
+  margin-top: 10px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+.artifact-bag > p {
+  color: #8f897e;
+  font-size: 12px;
+  margin: 6px 0 0;
+}
+.artifact-card {
+  border: 1px solid #3d4037;
+  background: #20221c;
+  padding: 9px;
+}
+.artifact-card.equipped { opacity: .72; }
+.artifact-card b,
+.artifact-card span {
+  display: block;
+}
+.artifact-card b {
+  color: var(--gold-bright);
+  font: 13px Georgia, serif;
+}
+.artifact-card span {
+  color: #b7b0a4;
+  font-size: 11px;
+  margin-top: 3px;
+  line-height: 1.35;
+}
+.artifact-card div {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.artifact-card button {
+  border: 1px solid #505348;
+  background: #161812;
+  color: #d6d0c4;
+  min-height: 28px;
+  padding: 0 7px;
+  font-size: 10px;
+  cursor: pointer;
+}
 .battlefield { padding: 22px clamp(18px, 2.6vw, 34px); display: flex; flex-direction: column; min-width: 0; }
 .battlefield-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .enemy-count { display: flex; align-items: center; gap: 8px; }
@@ -632,6 +729,7 @@ button:not(:disabled):active { transform: translateY(1px); }
   .battle-grid { display: block; min-height: 0; }
   .party-column { border-right: 0; border-bottom: 1px solid var(--line); padding: 18px 12px; }
   .hero-list { grid-template-columns: 1fr; }
+  .artifact-slots, .artifact-bag { max-height: none; }
   .hero-card { min-height: 88px; }
   .hero-name { display: block; }
   .hero-name span { display: block; margin-top: 3px; }
