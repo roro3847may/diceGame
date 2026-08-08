@@ -324,6 +324,51 @@ button:not(:disabled):active { transform: translateY(1px); }
 .builder-actions .start-button { margin-top: 0; }
 
 .combat-page { min-height: calc(100vh - 70px); position: relative; z-index: 2; }
+.transition-cue {
+  position: fixed;
+  inset: 70px 0 auto;
+  z-index: 80;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.transition-cue strong,
+.transition-cue span {
+  display: block;
+}
+.transition-cue strong {
+  font-family: Georgia, "Times New Roman", serif;
+  color: #fff2d2;
+}
+.transition-cue span {
+  color: var(--gold);
+  font: 700 12px var(--font-geist-mono);
+}
+.transition-cue.wave {
+  height: 120px;
+  background: linear-gradient(90deg, transparent, rgba(210,174,99,.2), transparent);
+  animation: waveSweep .82s ease both;
+}
+.transition-cue.wave strong {
+  font-size: clamp(36px, 6vw, 72px);
+  letter-spacing: 0;
+}
+.transition-cue.stage {
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(210,174,99,.18), transparent 30%),
+    rgba(7,8,6,.86);
+  animation: stageCurtain 1.2s ease both;
+}
+.transition-cue.stage strong {
+  font-size: clamp(52px, 9vw, 118px);
+  color: var(--gold-bright);
+}
+.transition-cue.stage span {
+  margin-bottom: 10px;
+  color: #d8d0c0;
+}
 .stage-strip {
   min-height: 64px;
   border-bottom: 1px solid var(--line);
@@ -976,4 +1021,18 @@ button:not(:disabled):active { transform: translateY(1px); }
   50% { transform: translate(-1px, 1px) rotate(-2deg); }
   75% { transform: translate(1px, 1px) rotate(1deg); }
   100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes waveSweep {
+  0% { opacity: 0; transform: translateX(-18px) skewX(-8deg); filter: blur(5px); }
+  22% { opacity: 1; transform: translateX(0) skewX(0); filter: blur(0); }
+  72% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(24px) skewX(8deg); filter: blur(3px); }
+}
+
+@keyframes stageCurtain {
+  0% { opacity: 0; clip-path: inset(50% 0 50% 0); }
+  24% { opacity: 1; clip-path: inset(0 0 0 0); }
+  72% { opacity: 1; }
+  100% { opacity: 0; clip-path: inset(0 50% 0 50%); }
 }

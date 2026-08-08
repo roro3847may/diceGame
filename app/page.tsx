@@ -7,6 +7,7 @@ type Role = "tank" | "dealer" | "healer";
 type Phase = "home" | "setup" | "combat" | "perk" | "gameover";
 type HealerMode = "heal" | "damage" | "xp";
 type ArtifactKind = "xp" | "revive" | "vigor" | "shield" | "strike" | "mending" | "ward" | "focus";
+type TransitionCue = { kind: "wave" | "stage"; title: string; subtitle: string; key: number } | null;
 
 type PerkRanks = Record<1 | 2 | 3, 0 | 1 | 2>;
 
@@ -272,6 +273,7 @@ export default function Home() {
   const [pendingPerks, setPendingPerks] = useState<PendingPerk[]>([]);
   const [log, setLog] = useState<string[]>(["파티를 만들고 원정을 시작하세요."]);
   const [showRules, setShowRules] = useState(true);
+  const [transitionCue, setTransitionCue] = useState<TransitionCue>(null);
 
   const livingHeroes = useMemo(() => heroes.filter((hero) => hero.hp > 0), [heroes]);
   const livingEnemies = useMemo(() => enemies.filter((enemy) => enemy.hp > 0), [enemies]);
@@ -283,6 +285,11 @@ export default function Home() {
     : currentHero ? `${currentHero.name} 행동` : "적 턴";
 
   const appendLog = (message: string) => setLog((current) => [message, ...current].slice(0, 12));
+
+  const showTransition = (kind: "wave" | "stage", title: string, subtitle: string) => {
+    setTransitionCue({ kind, title, subtitle, key: Date.now() });
+    window.setTimeout(() => setTransitionCue(null), kind === "wave" ? 820 : 1200);
+  };
 
   const changePartySize = (size: 3 | 5) => {
     setPartySize(size);
@@ -507,6 +514,7 @@ export default function Home() {
       setWave(nextWave);
       setEnemies(nextPack);
       resetPlayerTurnForNextPack(nextPack);
+      showTransition("wave", `WAVE ${nextWave}`, `${nextWave}/${totalWaves}`);
       appendLog(`웨이브 ${nextWave}/${totalWaves} 등장.`);
       return true;
     }
@@ -529,6 +537,7 @@ export default function Home() {
       guardCharges: hero.role === "tank" ? hero.perks[3] : 0,
       reviveCharges: hero.role === "healer" ? hero.perks[3] : 0,
     })));
+    showTransition("stage", `STAGE ${nextStageNumber}`, "원정은 계속됩니다");
     appendLog(`스테이지 ${nextStageNumber} 진입.`);
     if (pendingPerks.length > 0) setPhase("perk");
     return true;
@@ -769,6 +778,12 @@ export default function Home() {
 
       {phase === "combat" && (
         <section className="combat-page">
+          {transitionCue && (
+            <div key={transitionCue.key} className={`transition-cue ${transitionCue.kind}`}>
+              <span>{transitionCue.subtitle}</span>
+              <strong>{transitionCue.title}</strong>
+            </div>
+          )}
           <div className="stage-strip">
             <div><span>STAGE</span><strong>{stage}</strong></div>
             <p>웨이브 {wave}/{totalWaves} · 적 {livingEnemies.length}</p>
