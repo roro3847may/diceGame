@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 type Affinity = "physical" | "agility" | "magic";
 type Role = "tank" | "dealer" | "healer";
@@ -8,6 +8,7 @@ type Phase = "home" | "setup" | "combat" | "perk" | "gameover";
 type HealerMode = "heal" | "damage" | "xp";
 type ArtifactKind = "xp" | "revive" | "vigor" | "shield" | "strike" | "mending" | "ward" | "focus";
 type TransitionCue = { kind: "wave" | "stage"; title: string; subtitle: string; key: number } | null;
+type LootCue = { name: string; label: string; key: number } | null;
 
 type PerkRanks = Record<1 | 2 | 3, 0 | 1 | 2>;
 
@@ -145,16 +146,39 @@ const makeArtifact = (stage: number, wave: number): Artifact => {
     text: text[kind],
   };
 };
-const playTone = (frequency: number, duration = 0.08, volume = 0.025) => {
-  if (typeof window === "undefined") return;
+let sharedAudioContext: AudioContext | null = null;
+
+const getAudioContext = () => {
+  if (typeof window === "undefined") return null;
   const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!AudioContextClass) return;
-  const context = new AudioContextClass();
+  if (!AudioContextClass) return null;
+  if (!sharedAudioContext) sharedAudioContext = new AudioContextClass();
+  if (sharedAudioContext.state === "suspended") void sharedAudioContext.resume();
+  return sharedAudioContext;
+};
+
+const unlockAudio = () => {
+  const context = getAudioContext();
+  if (!context) return;
+  const gain = context.createGain();
+  gain.gain.value = 0.0001;
+  gain.connect(context.destination);
+  const oscillator = context.createOscillator();
+  oscillator.frequency.value = 180;
+  oscillator.connect(gain);
+  oscillator.start();
+  oscillator.stop(context.currentTime + 0.02);
+};
+
+const playTone = (frequency: number, duration = 0.08, volume = 0.025, type: OscillatorType = "triangle") => {
+  const context = getAudioContext();
+  if (!context) return;
   const oscillator = context.createOscillator();
   const gain = context.createGain();
   oscillator.frequency.value = frequency;
-  oscillator.type = "triangle";
-  gain.gain.value = volume;
+  oscillator.type = type;
+  gain.gain.setValueAtTime(0.0001, context.currentTime);
+  gain.gain.exponentialRampToValueAtTime(volume, context.currentTime + 0.008);
   oscillator.connect(gain);
   gain.connect(context.destination);
   oscillator.start();
@@ -166,6 +190,18 @@ const playChord = (frequencies: number[], duration = 0.12, volume = 0.018) => {
   frequencies.forEach((frequency, index) => {
     window.setTimeout(() => playTone(frequency, duration, volume), index * 32);
   });
+};
+
+const playSfx = (name: "ui" | "roll" | "attack" | "heal" | "loot" | "wave" | "stage" | "equip" | "enemy") => {
+  if (name === "roll") return playChord([392, 523, 659, 784], 0.045, 0.016);
+  if (name === "attack") return playChord([196, 330, 262], 0.07, 0.022);
+  if (name === "heal") return playChord([440, 554, 659], 0.11, 0.018);
+  if (name === "loot") return playChord([659, 784, 988, 1175], 0.105, 0.024);
+  if (name === "wave") return playChord([247, 370, 494], 0.12, 0.018);
+  if (name === "stage") return playChord([196, 262, 392, 523], 0.18, 0.02);
+  if (name === "equip") return playChord([330, 440], 0.07, 0.017);
+  if (name === "enemy") return playTone(120, 0.09, 0.024, "sawtooth");
+  return playChord([220, 277, 330], 0.08, 0.014);
 };
 
 const makeDrafts = (size: 3 | 5): DraftHero[] =>
@@ -274,6 +310,8 @@ export default function Home() {
   const [log, setLog] = useState<string[]>(["파티를 만들고 원정을 시작하세요."]);
   const [showRules, setShowRules] = useState(true);
   const [transitionCue, setTransitionCue] = useState<TransitionCue>(null);
+  const [lootCue, setLootCue] = useState<LootCue>(null);
+  const lootCueTimer = useRef<number | null>(null);
 
   const livingHeroes = useMemo(() => heroes.filter((hero) => hero.hp > 0), [heroes]);
   const livingEnemies = useMemo(() => enemies.filter((enemy) => enemy.hp > 0), [enemies]);
@@ -287,8 +325,15 @@ export default function Home() {
   const appendLog = (message: string) => setLog((current) => [message, ...current].slice(0, 12));
 
   const showTransition = (kind: "wave" | "stage", title: string, subtitle: string) => {
+    playSfx(kind);
     setTransitionCue({ kind, title, subtitle, key: Date.now() });
     window.setTimeout(() => setTransitionCue(null), kind === "wave" ? 820 : 1200);
+  };
+
+  const showLootCue = (artifact: Artifact) => {
+    if (lootCueTimer.current) window.clearTimeout(lootCueTimer.current);
+    setLootCue({ name: artifact.name, label: artifactValueLabel(artifact), key: Date.now() });
+    lootCueTimer.current = window.setTimeout(() => setLootCue(null), 1050);
   };
 
   const changePartySize = (size: 3 | 5) => {
@@ -297,7 +342,8 @@ export default function Home() {
   };
 
   const openSetup = (size: 3 | 5) => {
-    playChord([220, 277, 330], 0.1, 0.018);
+    unlockAudio();
+    playSfx("ui");
     setPartySize(size);
     setDrafts(makeDrafts(size));
     setPhase("setup");
@@ -308,6 +354,7 @@ export default function Home() {
   };
 
   const startGame = () => {
+    unlockAudio();
     playChord([262, 330, 392], 0.12, 0.02);
     const party = drafts.map(createHero);
     const nextStage = makeStage(1, partySize);
@@ -384,7 +431,7 @@ export default function Home() {
 
   const rollForHero = () => {
     if (!activeHero || activeHero.id !== currentHero?.id || rolled || rollingValue !== null) return;
-    playChord([392, 523], 0.055, 0.018);
+    playSfx("roll");
     setTurnStarted(true);
     let ticks = 0;
     const roller = window.setInterval(() => {
@@ -421,11 +468,13 @@ export default function Home() {
     const artifact = makeArtifact(stage, wave);
     setArtifacts((current) => [artifact, ...current].slice(0, 18));
     appendLog(`${reason}: 유물 획득 - ${artifact.name} ${artifactValueLabel(artifact)}`);
-    playChord([523, 659, 784], 0.1, 0.02);
+    showLootCue(artifact);
+    playSfx("loot");
   };
 
   const equipArtifact = (heroId: string, artifactId: string, slot: 0 | 1) => {
     if (phase !== "combat" || !artifactId) return;
+    playSfx("equip");
     setHeroes((current) => current.map((hero) => {
       const nextSlots: [string | null, string | null] = hero.artifacts.includes(artifactId)
         ? hero.artifacts.map((id) => id === artifactId ? null : id) as [string | null, string | null]
@@ -545,7 +594,7 @@ export default function Home() {
 
   const resolveAction = () => {
     if (!activeHero || !rolled || rolled.heroId !== activeHero.id) return;
-    playChord(activeHero.role === "healer" ? [440, 554] : activeHero.role === "tank" ? [220, 294] : [523, 659], 0.07, 0.018);
+    playSfx(activeHero.role === "healer" ? "heal" : activeHero.role === "tank" ? "equip" : "attack");
     if (rolled.mode === "guard") {
       endHeroAction();
       return;
@@ -782,6 +831,13 @@ export default function Home() {
             <div key={transitionCue.key} className={`transition-cue ${transitionCue.kind}`}>
               <span>{transitionCue.subtitle}</span>
               <strong>{transitionCue.title}</strong>
+            </div>
+          )}
+          {lootCue && (
+            <div key={lootCue.key} className="loot-cue" aria-live="polite">
+              <span>유물 획득</span>
+              <strong>{lootCue.name}</strong>
+              <em>{lootCue.label}</em>
             </div>
           )}
           <div className="stage-strip">

@@ -369,6 +369,57 @@ button:not(:disabled):active { transform: translateY(1px); }
   margin-bottom: 10px;
   color: #d8d0c0;
 }
+.loot-cue {
+  position: fixed;
+  z-index: 82;
+  right: clamp(22px, 26vw, 410px);
+  top: clamp(130px, 24vh, 230px);
+  width: min(240px, calc(100vw - 36px));
+  pointer-events: none;
+  padding: 14px 16px 15px;
+  border: 1px solid rgba(241, 204, 127, .72);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 231, 156, .34), transparent 34%),
+    linear-gradient(145deg, rgba(43, 33, 17, .96), rgba(18, 20, 14, .94));
+  box-shadow: 0 22px 54px rgba(0,0,0,.42), 0 0 34px rgba(222, 176, 88, .2);
+  text-align: left;
+  animation: lootDrop 1.05s cubic-bezier(.16, .88, .22, 1) both;
+}
+.loot-cue::before {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  border-radius: 26px;
+  background: radial-gradient(circle, rgba(241, 204, 127, .25), transparent 58%);
+  animation: lootSpark 1.05s ease both;
+  z-index: -1;
+}
+.loot-cue span {
+  display: block;
+  color: var(--gold);
+  font: 800 10px var(--font-geist-mono);
+  letter-spacing: .12em;
+}
+.loot-cue strong {
+  display: block;
+  margin-top: 5px;
+  color: #fff4d5;
+  font-size: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.loot-cue em {
+  display: inline-block;
+  margin-top: 7px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(241, 204, 127, .14);
+  color: #f4d690;
+  font-style: normal;
+  font: 800 11px var(--font-geist-mono);
+}
 .stage-strip {
   min-height: 64px;
   border-bottom: 1px solid var(--line);
@@ -940,6 +991,7 @@ button:not(:disabled):active { transform: translateY(1px); }
   .stage-strip p { border-left: 0; padding-left: 0; font-size: 12px; }
   .stage-strip { flex-wrap: wrap; }
   .turn-badge { display: block; order: 3; width: 100%; margin-left: 0; padding: 7px 9px; font-size: 11px; }
+  .loot-cue { top: 118px; right: 14px; width: min(220px, calc(100vw - 28px)); }
   .battle-grid { display: block; min-height: 0; }
   .party-column { border-right: 0; border-bottom: 1px solid var(--line); padding: 18px 12px; }
   .hero-list { grid-template-columns: 1fr; }
@@ -976,6 +1028,8 @@ button:not(:disabled):active { transform: translateY(1px); }
   .draft-number { display: none; }
   .stage-strip { justify-content: space-between; }
   .stage-strip p { max-width: 170px; text-align: right; }
+  .loot-cue { top: 128px; right: 10px; padding: 12px 13px; }
+  .loot-cue strong { font-size: 14px; }
   .enemy-grid { grid-template-columns: 1fr; max-height: 300px; }
   .enemy-card { min-height: 72px; }
   .hero-state { display: none; }
@@ -1035,4 +1089,36 @@ button:not(:disabled):active { transform: translateY(1px); }
   24% { opacity: 1; clip-path: inset(0 0 0 0); }
   72% { opacity: 1; }
   100% { opacity: 0; clip-path: inset(0 50% 0 50%); }
+}
+
+@keyframes lootDrop {
+  0% {
+    opacity: 0;
+    transform: translate(170px, -34px) rotate(13deg) scale(.64);
+    filter: blur(6px);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(72px, 20px) rotate(-8deg) scale(1.08);
+    filter: blur(0);
+  }
+  48% {
+    opacity: 1;
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: translate(-10px, -8px) rotate(-1deg) scale(.98);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-42px, 34px) rotate(-7deg) scale(.82);
+    filter: blur(3px);
+  }
+}
+
+@keyframes lootSpark {
+  0% { opacity: 0; transform: scale(.5); }
+  20% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.35); }
 }
