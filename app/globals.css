@@ -90,6 +90,16 @@ button:not(:disabled):active { transform: translateY(1px); }
   font-size: 13px;
 }
 
+.home-page {
+  min-height: calc(100vh - 70px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  position: relative;
+  z-index: 2;
+  overflow: hidden;
+}
 .setup-page {
   min-height: calc(100vh - 70px);
   display: grid;
@@ -99,14 +109,23 @@ button:not(:disabled):active { transform: translateY(1px); }
   position: relative;
   z-index: 2;
 }
+.setup-builder {
+  min-height: calc(100vh - 70px);
+  display: grid;
+  place-items: center;
+  padding: clamp(18px, 4vw, 48px);
+  position: relative;
+  z-index: 2;
+}
 .setup-copy {
-  padding: clamp(48px, 7vw, 104px) clamp(28px, 6vw, 84px);
-  border-right: 1px solid var(--line);
+  width: min(1040px, 100%);
+  min-height: min(660px, calc(100vh - 96px));
+  padding: clamp(28px, 6vw, 72px);
   display: flex;
   flex-direction: column;
   justify-content: center;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 .eyebrow, .step-kicker, .chapter-mark, .console-label, .section-title span, .battlefield-head > div > span, .loot-head > div > span {
   color: var(--gold);
@@ -122,10 +141,10 @@ button:not(:disabled):active { transform: translateY(1px); }
   font-weight: 500;
 }
 .hero-title {
-  max-width: 760px;
-  font-size: clamp(68px, 7.2vw, 116px) !important;
+  max-width: 900px;
+  font-size: clamp(52px, 8.6vw, 112px) !important;
   line-height: .96 !important;
-  margin: 26px 0 30px !important;
+  margin: 18px 0 28px !important;
   animation: titleRise .7s cubic-bezier(.2,.8,.2,1) both;
 }
 .hero-title span,
@@ -147,6 +166,17 @@ button:not(:disabled):active { transform: translateY(1px); }
   line-height: 1.75;
   max-width: 520px;
   animation: fadeUp .7s .16s ease both;
+}
+.home-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 26px;
+  flex-wrap: wrap;
+  animation: fadeUp .7s .24s ease both;
+}
+.primary-button.ghost {
+  background: transparent;
+  color: var(--gold-bright);
 }
 .hero-graphic {
   position: absolute;
@@ -200,10 +230,13 @@ button:not(:disabled):active { transform: translateY(1px); }
   animation: fadeUp .8s .25s ease both;
 }
 .setup-panel {
+  width: min(760px, 100%);
   padding: clamp(30px, 4vw, 56px);
   align-self: center;
-  max-height: calc(100vh - 70px);
+  max-height: none;
   overflow-y: auto;
+  border: 1px solid var(--line);
+  background: rgba(22,24,19,.72);
 }
 .panel-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
 .panel-heading h2, .section-title h2, .battlefield-head h2, .loot-head h2 {
@@ -281,6 +314,14 @@ button:not(:disabled):active { transform: translateY(1px); }
 }
 .primary-button:hover { background: var(--gold-bright); }
 .start-button { width: 100%; margin-top: 18px; font-size: 15px; }
+.builder-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-top: 18px;
+}
+.builder-actions .start-button { margin-top: 0; }
 
 .combat-page { min-height: calc(100vh - 70px); position: relative; z-index: 2; }
 .stage-strip {
@@ -300,7 +341,7 @@ button:not(:disabled):active { transform: translateY(1px); }
 .turn-badge i { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #7fc681; margin-right: 7px; }
 .battle-grid {
   display: grid;
-  grid-template-columns: minmax(350px, 390px) minmax(540px, 1fr) minmax(320px, 360px);
+  grid-template-columns: minmax(420px, 470px) minmax(520px, 1fr) minmax(280px, 330px);
   min-height: calc(100vh - 134px);
 }
 .party-column, .chronicle { padding: 22px 18px; background: rgba(22,24,19,.86); }
@@ -316,11 +357,11 @@ button:not(:disabled):active { transform: translateY(1px); }
   position: relative;
   border: 1px solid var(--line);
   background: var(--panel);
-  padding: 12px 76px 12px 12px;
+  padding: 12px 74px 12px 12px;
   display: flex;
   gap: 12px;
   cursor: pointer;
-  min-height: 90px;
+  min-height: 138px;
   animation: cardIn .22s ease both;
 }
 .hero-card:hover:not(.fallen):not(.acted), .hero-card.selected { border-color: var(--gold); }
@@ -362,6 +403,52 @@ button:not(:disabled):active { transform: translateY(1px); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.hero-relics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
+.hero-relics button {
+  min-height: 30px;
+  border: 1px dashed #4c4f44;
+  background: #13150f;
+  color: #9f998d;
+  padding: 0 7px;
+  font-size: 10px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hero-relics button.filled {
+  border-style: solid;
+  border-color: #806e47;
+  color: var(--gold-bright);
+}
+.relic-equip-row {
+  display: flex;
+  gap: 5px;
+  margin-top: 7px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.relic-equip-row button {
+  flex: 0 0 auto;
+  border: 1px solid #4b4e43;
+  background: #20221c;
+  color: #d6d0c4;
+  min-height: 28px;
+  max-width: 112px;
+  padding: 0 7px;
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.relic-equip-row button.equipped {
+  opacity: .52;
 }
 .gear-row { display: flex; gap: 5px; margin-top: 8px; }
 .gear-row span {
@@ -597,6 +684,11 @@ button:not(:disabled):active { transform: translateY(1px); }
   color: var(--gold);
   font: 42px Georgia, serif;
 }
+.idle-die.rolling {
+  animation: diceRattle .45s linear infinite;
+  color: #fff3d2;
+  border-color: var(--gold-bright);
+}
 .rolled-die span { font-size: 42px; align-self: end; }
 .rolled-die small { font: 10px var(--font-geist-mono); color: #b2aa9b; text-align: center; align-self: start; padding: 5px; overflow-wrap: anywhere; }
 .roll-button, .resolve-button {
@@ -771,7 +863,7 @@ button:not(:disabled):active { transform: translateY(1px); }
 .rules-grid p strong { color: #f1eadc; }
 
 @media (max-width: 1280px) {
-  .battle-grid { grid-template-columns: minmax(330px, 380px) 1fr; }
+  .battle-grid { grid-template-columns: minmax(390px, 450px) 1fr; }
   .chronicle { grid-column: 1/-1; border-left: 0; border-top: 1px solid var(--line); min-height: 300px; }
   .chronicle ol { max-height: 150px; }
   .setup-page { grid-template-columns: .76fr 1.24fr; }
@@ -786,11 +878,13 @@ button:not(:disabled):active { transform: translateY(1px); }
   .brand small { display: none; }
   .text-button, .rule-button { min-height: 38px; padding: 0 11px; font-size: 12px; }
   .setup-page, .interlude-page { display: block; }
-  .setup-copy { padding: 42px 18px 28px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .home-page { min-height: calc(100vh - 62px); align-items: stretch; }
+  .setup-copy { min-height: calc(100vh - 62px); padding: 56px 18px 28px; }
   .setup-copy h1 { font-size: 43px; }
+  .hero-title { font-size: clamp(44px, 17vw, 78px) !important; }
   .hero-graphic { opacity: .28; right: -28px; bottom: 8px; transform: scale(.78); }
   .lead { font-size: 16px; line-height: 1.65; }
-  .setup-panel { padding: 26px 14px 42px; max-height: none; }
+  .setup-panel { padding: 22px 14px 30px; max-height: none; border: 0; }
   .panel-heading { align-items: center; }
   .panel-heading h2 { font-size: 23px; }
   .draft-card { padding: 12px; }
@@ -799,7 +893,8 @@ button:not(:disabled):active { transform: translateY(1px); }
   .stage-strip { min-height: 58px; padding: 8px 12px; gap: 12px; }
   .stage-strip strong { font-size: 26px; }
   .stage-strip p { border-left: 0; padding-left: 0; font-size: 12px; }
-  .turn-badge { display: none; }
+  .stage-strip { flex-wrap: wrap; }
+  .turn-badge { display: block; order: 3; width: 100%; margin-left: 0; padding: 7px 9px; font-size: 11px; }
   .battle-grid { display: block; min-height: 0; }
   .party-column { border-right: 0; border-bottom: 1px solid var(--line); padding: 18px 12px; }
   .hero-list { grid-template-columns: 1fr; }
@@ -826,7 +921,8 @@ button:not(:disabled):active { transform: translateY(1px); }
 @media (max-width: 480px) {
   .game-shell::before { box-shadow: inset 0 0 70px rgba(0,0,0,.62); }
   .setup-copy h1, .interlude-copy h1, .gameover-page h1 { font-size: 38px; }
-  .hero-title span, .hero-title em { white-space: normal; }
+  .hero-title { font-size: clamp(38px, 13.5vw, 60px) !important; }
+  .hero-title span, .hero-title em { white-space: nowrap; }
   .hero-graphic { display: none; }
   .panel-heading { display: grid; gap: 12px; }
   .party-toggle { width: 100%; }
@@ -872,4 +968,12 @@ button:not(:disabled):active { transform: translateY(1px); }
 @keyframes floatOne {
   0%, 100% { translate: 0 0; }
   50% { translate: 0 -8px; }
+}
+
+@keyframes diceRattle {
+  0% { transform: translate(0, 0) rotate(0deg); }
+  25% { transform: translate(1px, -1px) rotate(2deg); }
+  50% { transform: translate(-1px, 1px) rotate(-2deg); }
+  75% { transform: translate(1px, 1px) rotate(1deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
 }

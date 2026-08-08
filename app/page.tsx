@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 
 type Affinity = "physical" | "agility" | "magic";
 type Role = "tank" | "dealer" | "healer";
-type Phase = "setup" | "combat" | "perk" | "gameover";
+type Phase = "home" | "setup" | "combat" | "perk" | "gameover";
 type HealerMode = "heal" | "damage" | "xp";
 type ArtifactKind = "xp" | "revive" | "vigor" | "shield" | "strike" | "mending" | "ward" | "focus";
 
@@ -250,7 +250,7 @@ const applyLevelUps = (hero: Hero, gained: number): { hero: Hero; pending: Pendi
 };
 
 export default function Home() {
-  const [phase, setPhase] = useState<Phase>("setup");
+  const [phase, setPhase] = useState<Phase>("home");
   const [partySize, setPartySize] = useState<3 | 5>(3);
   const [drafts, setDrafts] = useState<DraftHero[]>(() => makeDrafts(3));
   const [heroes, setHeroes] = useState<Hero[]>([]);
@@ -260,12 +260,13 @@ export default function Home() {
   const [wave, setWave] = useState(1);
   const [totalWaves, setTotalWaves] = useState(2);
   const [acted, setActed] = useState<string[]>([]);
-  const [selectedHero, setSelectedHero] = useState<string | null>(null);
+  const [, setSelectedHero] = useState<string | null>(null);
   const [selectedEnemy, setSelectedEnemy] = useState<string | null>(null);
   const [selectedAlly, setSelectedAlly] = useState<string | null>(null);
   const [healerMode, setHealerMode] = useState<HealerMode>("heal");
   const [multiTargets, setMultiTargets] = useState<string[]>([]);
   const [rolled, setRolled] = useState<RollState | null>(null);
+  const [rollingValue, setRollingValue] = useState<number | null>(null);
   const [lastRoll, setLastRoll] = useState<number | null>(null);
   const [turnStarted, setTurnStarted] = useState(false);
   const [pendingPerks, setPendingPerks] = useState<PendingPerk[]>([]);
@@ -275,14 +276,24 @@ export default function Home() {
   const livingHeroes = useMemo(() => heroes.filter((hero) => hero.hp > 0), [heroes]);
   const livingEnemies = useMemo(() => enemies.filter((enemy) => enemy.hp > 0), [enemies]);
   const currentHero = heroes.find((hero) => hero.hp > 0 && !acted.includes(hero.id)) ?? null;
-  const activeHero = selectedHero ? heroes.find((hero) => hero.id === selectedHero) ?? null : currentHero;
-  const canReorder = phase === "combat" && !turnStarted && !rolled;
+  const activeHero = currentHero;
+  const canReorder = phase === "combat" && !turnStarted && !rolled && rollingValue === null;
+  const turnText = artifacts.length > 0 && phase === "combat"
+    ? `유물을 장착하세요 · ${currentHero ? `${currentHero.name} 행동` : "적 턴"}`
+    : currentHero ? `${currentHero.name} 행동` : "적 턴";
 
   const appendLog = (message: string) => setLog((current) => [message, ...current].slice(0, 12));
 
   const changePartySize = (size: 3 | 5) => {
     setPartySize(size);
     setDrafts(makeDrafts(size));
+  };
+
+  const openSetup = (size: 3 | 5) => {
+    playChord([220, 277, 330], 0.1, 0.018);
+    setPartySize(size);
+    setDrafts(makeDrafts(size));
+    setPhase("setup");
   };
 
   const updateDraft = (index: number, patch: Partial<DraftHero>) => {
@@ -314,7 +325,7 @@ export default function Home() {
   };
 
   const resetGame = () => {
-    setPhase("setup");
+    setPhase("home");
     setDrafts(makeDrafts(partySize));
     setHeroes([]);
     setEnemies([]);
@@ -325,6 +336,7 @@ export default function Home() {
     setPendingPerks([]);
     setSelectedHero(null);
     setRolled(null);
+    setRollingValue(null);
     setLastRoll(null);
     setTurnStarted(false);
     setLog(["새 원정을 준비합니다."]);
@@ -364,24 +376,33 @@ export default function Home() {
   };
 
   const rollForHero = () => {
-    if (!activeHero || activeHero.id !== currentHero?.id || rolled) return;
+    if (!activeHero || activeHero.id !== currentHero?.id || rolled || rollingValue !== null) return;
     playChord([392, 523], 0.055, 0.018);
-    const result = rollValue(activeHero);
-    setRolled({ heroId: activeHero.id, value: result.value, detail: result.detail, mode: "normal" });
-    setLastRoll(result.value);
     setTurnStarted(true);
-    if (activeHero.role === "healer") {
-      setSelectedAlly(livingHeroes[0]?.id ?? activeHero.id);
-      setMultiTargets([livingHeroes[0]?.id ?? activeHero.id]);
-      setHealerMode("heal");
-    } else {
-      setSelectedEnemy(livingEnemies[0]?.id ?? null);
-    }
-    appendLog(`${activeHero.name} 주사위 ${result.value}`);
+    let ticks = 0;
+    const roller = window.setInterval(() => {
+      ticks += 1;
+      setRollingValue(randomInt(1, 12));
+      if (ticks >= 12) {
+        window.clearInterval(roller);
+        const result = rollValue(activeHero);
+        setRollingValue(null);
+        setRolled({ heroId: activeHero.id, value: result.value, detail: result.detail, mode: "normal" });
+        setLastRoll(result.value);
+        if (activeHero.role === "healer") {
+          setSelectedAlly(livingHeroes[0]?.id ?? activeHero.id);
+          setMultiTargets([livingHeroes[0]?.id ? livingHeroes[0].id : activeHero.id]);
+          setHealerMode("heal");
+        } else {
+          setSelectedEnemy(livingEnemies[0]?.id ?? null);
+        }
+        appendLog(`${activeHero.name} 주사위 ${result.value}`);
+      }
+    }, 38);
   };
 
   const useGuard = () => {
-    if (!activeHero || activeHero.role !== "tank" || activeHero.id !== currentHero?.id || activeHero.guardCharges <= 0 || rolled) return;
+    if (!activeHero || activeHero.role !== "tank" || activeHero.id !== currentHero?.id || activeHero.guardCharges <= 0 || rolled || rollingValue !== null) return;
     setHeroes((current) => current.map((hero) => hero.id === activeHero.id ? { ...hero, guardCharges: hero.guardCharges - 1, guarded: true } : hero));
     setRolled({ heroId: activeHero.id, value: 0, detail: "다음 공격 1회 무마", mode: "guard" });
     setTurnStarted(true);
@@ -442,6 +463,7 @@ export default function Home() {
     const nextActed = [...acted, activeHero.id];
     setActed(nextActed);
     setRolled(null);
+    setRollingValue(null);
     setSelectedHero(null);
     setSelectedEnemy(livingEnemies[0]?.id ?? null);
     setSelectedAlly(null);
@@ -679,8 +701,8 @@ export default function Home() {
         </div>
       </header>
 
-      {phase === "setup" && (
-        <section className="setup-page">
+      {phase === "home" && (
+        <section className="home-page">
           <div className="setup-copy">
             <p className="eyebrow">SOLO WAVE RPG</p>
             <h1 className="hero-title">
@@ -688,7 +710,10 @@ export default function Home() {
               <em>웨이브를</em>
               <em>버텨라</em>
             </h1>
-            <p className="lead">속성은 주사위를, 직업은 행동 방식을 정합니다. 레벨, 경험치, 특전, 유물이 원정의 핵심이 됩니다.</p>
+            <div className="home-actions">
+              <button className="primary-button" onClick={() => openSetup(3)}>3인 원정 시작</button>
+              <button className="primary-button ghost" onClick={() => openSetup(5)}>5인 원정 시작</button>
+            </div>
             <div className="hero-graphic" aria-hidden="true">
               <span className="sigil sigil-one">D6</span>
               <span className="sigil sigil-two">XP</span>
@@ -696,6 +721,11 @@ export default function Home() {
               <i />
             </div>
           </div>
+        </section>
+      )}
+
+      {phase === "setup" && (
+        <section className="setup-builder">
           <div className="setup-panel">
             <div className="panel-heading">
               <div><span className="step-kicker">파티 준비</span><h2>캐릭터 선택</h2></div>
@@ -719,7 +749,10 @@ export default function Home() {
                 </article>
               ))}
             </div>
-            <button className="primary-button start-button" onClick={startGame}>원정 시작</button>
+            <div className="builder-actions">
+              <button className="text-button" onClick={() => setPhase("home")}>돌아가기</button>
+              <button className="primary-button start-button" onClick={startGame}>원정 시작</button>
+            </div>
           </div>
         </section>
       )}
@@ -729,7 +762,7 @@ export default function Home() {
           <div className="stage-strip">
             <div><span>STAGE</span><strong>{stage}</strong></div>
             <p>웨이브 {wave}/{totalWaves} · 적 {livingEnemies.length}</p>
-            <div className="turn-badge"><i /> {currentHero ? `${currentHero.name} 행동` : "적 턴"}</div>
+            <div className="turn-badge"><i /> {turnText}</div>
           </div>
           <div className="battle-grid">
             <section className="party-column">
@@ -742,37 +775,26 @@ export default function Home() {
                       <div className="hero-name"><h3>{hero.name}</h3><span>Lv.{hero.level} {AFFINITIES[hero.affinity].label} · {ROLES[hero.role].label}</span></div>
                       <div className="bar-row"><div className="hp-track"><i style={{ width: hpBar(hero.hp, maxHpOf(hero, artifacts)) }} /></div><b>{hero.hp}/{maxHpOf(hero, artifacts)}</b>{hero.shield > 0 && <span className="shield">실드 {hero.shield}</span>}</div>
                       <div className="xp-line">XP {hero.xp}/{xpToNext(hero.level)} · 특전 {hero.perks[1]}/{hero.perks[2]}/{hero.perks[3]}</div>
+                      <div className="hero-relics">
+                        {[0, 1].map((slot) => {
+                          const artifact = artifacts.find((item) => item.id === hero.artifacts[slot]);
+                          return <button key={slot} className={artifact ? "filled" : ""} onClick={() => unequipArtifact(hero.id, slot as 0 | 1)}>
+                            {artifact ? artifact.name : `유물 ${slot + 1}`}
+                          </button>;
+                        })}
+                      </div>
+                      {artifacts.length > 0 && <div className="relic-equip-row">
+                        {artifacts.map((artifact) => {
+                          const equipped = heroes.some((owner) => owner.artifacts.includes(artifact.id));
+                          return <button key={artifact.id} className={equipped ? "equipped" : ""} title={artifact.text} onClick={() => equipArtifact(hero.id, artifact.id, hero.artifacts[0] ? 1 : 0)}>
+                            {artifact.name}
+                          </button>;
+                        })}
+                      </div>}
                     </div>
                     {canReorder && <div className="order-buttons"><button onClick={() => moveHero(hero.id, -1)} disabled={index === 0}>↑</button><button onClick={() => moveHero(hero.id, 1)} disabled={index === heroes.length - 1}>↓</button></div>}
                   </article>
                 ))}
-              </div>
-              <div className="artifact-panel">
-                <div className="section-title compact"><div><span>RELIC</span><h2>유물</h2></div><small>턴 중 교체 가능</small></div>
-                <div className="artifact-slots">
-                  {heroes.map((hero) => (
-                    <div className="artifact-hero" key={`artifact-${hero.id}`}>
-                      <b>{hero.name}</b>
-                      {[0, 1].map((slot) => {
-                        const artifact = artifacts.find((item) => item.id === hero.artifacts[slot]);
-                        return <button key={slot} className={artifact ? "filled" : ""} onClick={() => unequipArtifact(hero.id, slot as 0 | 1)}>
-                          {artifact ? <><span>{artifact.name}</span><small>{artifact.text}</small></> : <><span>빈 슬롯</span><small>클릭한 유물을 장착</small></>}
-                        </button>;
-                      })}
-                    </div>
-                  ))}
-                </div>
-                <div className="artifact-bag">
-                  {artifacts.length === 0 && <p>아직 발견한 유물이 없습니다.</p>}
-                  {artifacts.map((artifact) => {
-                    const equipped = heroes.some((hero) => hero.artifacts.includes(artifact.id));
-                    return <div className={`artifact-card ${equipped ? "equipped" : ""}`} key={artifact.id}>
-                      <b>{artifact.name}</b>
-                      <span>{artifact.text}</span>
-                      <div>{heroes.map((hero) => <button key={hero.id} onClick={() => equipArtifact(hero.id, artifact.id, hero.artifacts[0] ? 1 : 0)}>{hero.name}</button>)}</div>
-                    </div>;
-                  })}
-                </div>
               </div>
             </section>
 
@@ -800,8 +822,8 @@ export default function Home() {
                   </div>}
                 </div>
                 <div className="dice-zone">
-                  {rolled ? <div className="rolled-die"><span>{rolled.mode === "guard" ? "막" : rolled.value}</span><small>{rolled.detail}</small></div> : <div className="idle-die">?</div>}
-                  <button className="roll-button" onClick={rollForHero} disabled={!activeHero || activeHero.id !== currentHero?.id || !!rolled}>{rolled ? "굴림 완료" : "주사위 굴리기"}</button>
+                  {rolled ? <div className="rolled-die"><span>{rolled.mode === "guard" ? "막" : rolled.value}</span><small>{rolled.detail}</small></div> : <div className={`idle-die ${rollingValue !== null ? "rolling" : ""}`}>{rollingValue ?? "?"}</div>}
+                  <button className="roll-button" onClick={rollForHero} disabled={!activeHero || activeHero.id !== currentHero?.id || !!rolled || rollingValue !== null}>{rollingValue !== null ? "굴리는 중" : rolled ? "굴림 완료" : "주사위 굴리기"}</button>
                   <button className="resolve-button" onClick={resolveAction} disabled={!rolled}>{activeHero?.role === "tank" ? "실드 얻기" : activeHero?.role === "healer" ? "적용하기" : "공격하기"}</button>
                   {activeHero?.role === "tank" && activeHero.guardCharges > 0 && <button className="skill-button" onClick={useGuard} disabled={!!rolled}>수호막 {activeHero.guardCharges}</button>}
                 </div>
@@ -859,7 +881,7 @@ export default function Home() {
             <h2 id="rules-title">규칙 요약</h2>
             <div className="rules-grid">
               <article><b>순서</b><p>위 캐릭터부터 행동하고, 적은 항상 가장 위의 생존 캐릭터를 공격합니다. 아무도 행동 전이면 순서 변경 가능.</p></article>
-              <article><b>직업</b><p>탱커는 본인 실드, 딜러는 주사위만큼 공격, 힐러는 아군 회복. 패스와 장비는 없습니다.</p></article>
+              <article><b>직업</b><p>탱커는 본인 실드, 딜러는 주사위만큼 공격, 힐러는 아군을 회복합니다.</p></article>
               <article><b>성장</b><p>막타, 웨이브, 스테이지로 경험치를 얻고 레벨마다 최종 주사위와 최대 체력이 증가합니다.</p></article>
               <article><b>유물</b><p>유물은 캐릭터당 2개까지 장착합니다. 내 턴에는 언제든 교체 가능하며, 대부분 패시브로 작동합니다.</p></article>
             </div>
