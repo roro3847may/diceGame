@@ -523,28 +523,73 @@ button:not(:disabled):active { transform: translateY(1px); }
   border-color: #806e47;
   color: var(--gold-bright);
 }
+.relic-bag {
+  margin-top: 7px;
+  border: 1px solid rgba(69, 72, 62, .8);
+  border-radius: 10px;
+  background: rgba(12, 14, 10, .46);
+  padding: 6px;
+}
+.relic-bag-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 5px;
+}
+.relic-bag-head span {
+  color: #9d978b;
+  font: 800 9px var(--font-geist-mono);
+  letter-spacing: .04em;
+}
+.relic-bag-head .danger {
+  min-height: 22px;
+  border: 1px solid #59473e;
+  border-radius: 999px;
+  background: #211815;
+  color: #d9b0a2;
+  padding: 0 8px;
+  font-size: 10px;
+  cursor: pointer;
+}
+.relic-bag-head .danger.active {
+  border-color: #b86a55;
+  background: #3a1f18;
+  color: #ffd6c8;
+}
+.relic-bag-head .danger:disabled {
+  opacity: .36;
+  cursor: not-allowed;
+}
 .relic-equip-row {
   display: flex;
+  flex-wrap: wrap;
   gap: 5px;
-  margin-top: 7px;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  max-height: 72px;
+  overflow-y: auto;
+  padding-right: 2px;
 }
 .relic-equip-row button {
-  flex: 0 0 auto;
+  flex: 0 1 calc(50% - 3px);
   border: 1px solid #4b4e43;
   background: #20221c;
   color: #d6d0c4;
   min-height: 28px;
-  max-width: 112px;
   padding: 0 7px;
   font-size: 10px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.relic-equip-row button.equipped {
-  opacity: .52;
+.relic-equip-row button.delete-pick {
+  border-color: #7a463b;
+  background: #2b1814;
+  color: #ffd2c5;
+}
+.relic-empty {
+  margin: 4px 0 1px;
+  color: #777168;
+  font-size: 10px;
 }
 .gear-row { display: flex; gap: 5px; margin-top: 8px; }
 .gear-row span {

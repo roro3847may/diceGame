@@ -311,10 +311,15 @@ export default function Home() {
   const [showRules, setShowRules] = useState(true);
   const [transitionCue, setTransitionCue] = useState<TransitionCue>(null);
   const [lootCue, setLootCue] = useState<LootCue>(null);
+  const [deleteRelicMode, setDeleteRelicMode] = useState(false);
   const lootCueTimer = useRef<number | null>(null);
 
   const livingHeroes = useMemo(() => heroes.filter((hero) => hero.hp > 0), [heroes]);
   const livingEnemies = useMemo(() => enemies.filter((enemy) => enemy.hp > 0), [enemies]);
+  const unequippedArtifacts = useMemo(
+    () => artifacts.filter((artifact) => !heroes.some((hero) => hero.artifacts.includes(artifact.id))),
+    [artifacts, heroes],
+  );
   const currentHero = heroes.find((hero) => hero.hp > 0 && !acted.includes(hero.id)) ?? null;
   const activeHero = currentHero;
   const canReorder = phase === "combat" && !turnStarted && !rolled && rollingValue === null;
@@ -375,6 +380,7 @@ export default function Home() {
     setPendingPerks([]);
     setLog([`스테이지 1, 웨이브 1/${nextStage.totalWaves} 시작.`, "위에 있는 캐릭터부터 행동합니다."]);
     setShowRules(false);
+    setDeleteRelicMode(false);
     setPhase("combat");
   };
 
@@ -393,6 +399,7 @@ export default function Home() {
     setRollingValue(null);
     setLastRoll(null);
     setTurnStarted(false);
+    setDeleteRelicMode(false);
     setLog(["새 원정을 준비합니다."]);
   };
 
@@ -474,6 +481,7 @@ export default function Home() {
 
   const equipArtifact = (heroId: string, artifactId: string, slot: 0 | 1) => {
     if (phase !== "combat" || !artifactId) return;
+    setDeleteRelicMode(false);
     playSfx("equip");
     setHeroes((current) => current.map((hero) => {
       const nextSlots: [string | null, string | null] = hero.artifacts.includes(artifactId)
@@ -490,12 +498,21 @@ export default function Home() {
 
   const unequipArtifact = (heroId: string, slot: 0 | 1) => {
     if (phase !== "combat") return;
+    setDeleteRelicMode(false);
     setHeroes((current) => current.map((hero) => {
       if (hero.id !== heroId) return hero;
       const nextSlots: [string | null, string | null] = [...hero.artifacts] as [string | null, string | null];
       nextSlots[slot] = null;
       return { ...hero, artifacts: nextSlots, hp: Math.min(hero.hp, maxHpOf({ ...hero, artifacts: nextSlots }, artifacts)) };
     }));
+  };
+
+  const deleteArtifact = (artifactId: string) => {
+    const artifact = artifacts.find((item) => item.id === artifactId);
+    if (!artifact || heroes.some((hero) => hero.artifacts.includes(artifactId))) return;
+    setArtifacts((current) => current.filter((item) => item.id !== artifactId));
+    appendLog(`유물을 버렸습니다: ${artifact.name}`);
+    playSfx("enemy");
   };
 
   const gainPartyXp = (amount: number, reason: string, dealerBonus?: { heroId: string; amount: number }) => {
@@ -864,13 +881,34 @@ export default function Home() {
                           </button>;
                         })}
                       </div>
-                      {artifacts.length > 0 && <div className="relic-equip-row">
-                        {artifacts.map((artifact) => {
-                          const equipped = heroes.some((owner) => owner.artifacts.includes(artifact.id));
-                          return <button key={artifact.id} className={equipped ? "equipped" : ""} title={artifact.text} onClick={() => equipArtifact(hero.id, artifact.id, hero.artifacts[0] ? 1 : 0)}>
-                            {artifact.name}
-                          </button>;
-                        })}
+                      {artifacts.length > 0 && <div className={`relic-bag ${deleteRelicMode ? "delete-mode" : ""}`}>
+                        <div className="relic-bag-head">
+                          <span>{deleteRelicMode ? "버릴 유물 선택" : `가방 ${unequippedArtifacts.length}`}</span>
+                          <button
+                            type="button"
+                            className={deleteRelicMode ? "danger active" : "danger"}
+                            onClick={() => setDeleteRelicMode((current) => !current)}
+                            disabled={unequippedArtifacts.length === 0}
+                          >
+                            {deleteRelicMode ? "취소" : "삭제"}
+                          </button>
+                        </div>
+                        {unequippedArtifacts.length > 0 ? (
+                          <div className="relic-equip-row">
+                            {unequippedArtifacts.map((artifact) => (
+                              <button
+                                key={artifact.id}
+                                className={deleteRelicMode ? "delete-pick" : ""}
+                                title={artifact.text}
+                                onClick={() => deleteRelicMode ? deleteArtifact(artifact.id) : equipArtifact(hero.id, artifact.id, hero.artifacts[0] ? 1 : 0)}
+                              >
+                                {artifact.name}
+                              </button>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="relic-empty">{deleteRelicMode ? "버릴 유물이 없습니다" : "미장착 유물이 없습니다"}</p>
+                        )}
                       </div>}
                     </div>
                     {canReorder && <div className="order-buttons"><button onClick={() => moveHero(hero.id, -1)} disabled={index === 0}>↑</button><button onClick={() => moveHero(hero.id, 1)} disabled={index === heroes.length - 1}>↓</button></div>}
