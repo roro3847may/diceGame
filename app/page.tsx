@@ -312,7 +312,9 @@ export default function Home() {
   const [transitionCue, setTransitionCue] = useState<TransitionCue>(null);
   const [lootCue, setLootCue] = useState<LootCue>(null);
   const [deleteRelicMode, setDeleteRelicMode] = useState(false);
+  const [resumeEnemyTurnAfterPerk, setResumeEnemyTurnAfterPerk] = useState(false);
   const lootCueTimer = useRef<number | null>(null);
+  const cueSerial = useRef(0);
 
   const livingHeroes = useMemo(() => heroes.filter((hero) => hero.hp > 0), [heroes]);
   const livingEnemies = useMemo(() => enemies.filter((enemy) => enemy.hp > 0), [enemies]);
@@ -331,13 +333,15 @@ export default function Home() {
 
   const showTransition = (kind: "wave" | "stage", title: string, subtitle: string) => {
     playSfx(kind);
-    setTransitionCue({ kind, title, subtitle, key: Date.now() });
+    cueSerial.current += 1;
+    setTransitionCue({ kind, title, subtitle, key: cueSerial.current });
     window.setTimeout(() => setTransitionCue(null), kind === "wave" ? 820 : 1200);
   };
 
   const showLootCue = (artifact: Artifact) => {
     if (lootCueTimer.current) window.clearTimeout(lootCueTimer.current);
-    setLootCue({ name: artifact.name, label: artifactValueLabel(artifact), key: Date.now() });
+    cueSerial.current += 1;
+    setLootCue({ name: artifact.name, label: artifactValueLabel(artifact), key: cueSerial.current });
     lootCueTimer.current = window.setTimeout(() => setLootCue(null), 1050);
   };
 
@@ -378,6 +382,7 @@ export default function Home() {
     setLastRoll(null);
     setTurnStarted(false);
     setPendingPerks([]);
+    setResumeEnemyTurnAfterPerk(false);
     setLog([`스테이지 1, 웨이브 1/${nextStage.totalWaves} 시작.`, "위에 있는 캐릭터부터 행동합니다."]);
     setShowRules(false);
     setDeleteRelicMode(false);
@@ -394,6 +399,7 @@ export default function Home() {
     setWave(1);
     setActed([]);
     setPendingPerks([]);
+    setResumeEnemyTurnAfterPerk(false);
     setSelectedHero(null);
     setRolled(null);
     setRollingValue(null);
@@ -518,17 +524,35 @@ export default function Home() {
   const gainPartyXp = (amount: number, reason: string, dealerBonus?: { heroId: string; amount: number }) => {
     const newPending: PendingPerk[] = [];
     const levelNotes: string[] = [];
-    setHeroes((current) => current.map((hero) => {
+    const nextHeroes = heroes.map((hero) => {
       const aliveShare = hero.hp > 0 ? amount : Math.floor(amount * 0.45);
       const bonus = dealerBonus?.heroId === hero.id ? dealerBonus.amount : 0;
       const result = applyLevelUps(hero, Math.floor((aliveShare + bonus) * xpMultiplierOf(hero, artifacts)));
       newPending.push(...result.pending);
       levelNotes.push(...result.notes);
       return result.hero;
-    }));
-    if (newPending.length) setPendingPerks((current) => [...current, ...newPending]);
+    });
+    setHeroes(nextHeroes);
+    if (newPending.length) {
+      setPendingPerks((current) => [...current, ...newPending]);
+      setPhase("perk");
+    }
     appendLog(`${reason}: 파티 경험치 +${amount}${dealerBonus ? `, 막타 보너스 +${dealerBonus.amount}` : ""}`);
     if (levelNotes.length) appendLog(levelNotes.join(", "));
+    return newPending.length > 0;
+  };
+
+  const pauseActionForPerk = () => {
+    if (!activeHero) return;
+    const nextActed = [...acted, activeHero.id];
+    setActed(nextActed);
+    setRolled(null);
+    setRollingValue(null);
+    setSelectedHero(null);
+    setSelectedEnemy(livingEnemies[0]?.id ?? null);
+    setSelectedAlly(null);
+    setMultiTargets([]);
+    setResumeEnemyTurnAfterPerk(!heroes.some((hero) => hero.hp > 0 && !nextActed.includes(hero.id)));
   };
 
   const endHeroAction = () => {
@@ -605,7 +629,6 @@ export default function Home() {
     })));
     showTransition("stage", `STAGE ${nextStageNumber}`, "원정은 계속됩니다");
     appendLog(`스테이지 ${nextStageNumber} 진입.`);
-    if (pendingPerks.length > 0) setPhase("perk");
     return true;
   };
 
@@ -668,8 +691,15 @@ export default function Home() {
         const xpAmount = Math.max(1, Math.floor(rolled.value * 0.7));
         const result = applyLevelUps(target, xpAmount);
         setHeroes((current) => current.map((hero) => hero.id === target.id ? result.hero : hero));
-        if (result.pending.length) setPendingPerks((current) => [...current, ...result.pending]);
+        if (result.pending.length) {
+          setPendingPerks((current) => [...current, ...result.pending]);
+          setPhase("perk");
+        }
         appendLog(`${target.name} 경험치 +${xpAmount}`);
+        if (result.pending.length) {
+          pauseActionForPerk();
+          return;
+        }
         endHeroAction();
         return;
       }
@@ -767,7 +797,13 @@ export default function Home() {
     const rest = pendingPerks.slice(1);
     setPendingPerks(rest);
     appendLog(`${hero.name} 특전 획득: ${PERKS[hero.role][perk].title} ${currentRank + 1}단계`);
-    if (rest.length === 0) setPhase("combat");
+    if (rest.length === 0) {
+      setPhase("combat");
+      if (resumeEnemyTurnAfterPerk) {
+        setResumeEnemyTurnAfterPerk(false);
+        window.setTimeout(() => enemyTurn(), 0);
+      }
+    }
   };
 
   const activePending = pendingPerks[0];
