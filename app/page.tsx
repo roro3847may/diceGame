@@ -477,6 +477,18 @@ export default function Home() {
     enemyTurn();
   };
 
+  const resetPlayerTurnForNextPack = (nextEnemies: Enemy[]) => {
+    setActed([]);
+    setTurnStarted(false);
+    setRolled(null);
+    setRollingValue(null);
+    setSelectedHero(heroes.find((hero) => hero.hp > 0)?.id ?? null);
+    setSelectedEnemy(nextEnemies[0]?.id ?? null);
+    setSelectedAlly(null);
+    setMultiTargets([]);
+    setHealerMode("heal");
+  };
+
   const checkWaveEnd = (nextEnemies: Enemy[], killer?: Hero) => {
     const stillAlive = nextEnemies.some((enemy) => enemy.hp > 0);
     if (stillAlive) return false;
@@ -494,7 +506,7 @@ export default function Home() {
       const nextPack = enemiesForWave(stage, nextWave, totalWaves, partySize);
       setWave(nextWave);
       setEnemies(nextPack);
-      setSelectedEnemy(nextPack[0]?.id ?? null);
+      resetPlayerTurnForNextPack(nextPack);
       appendLog(`웨이브 ${nextWave}/${totalWaves} 등장.`);
       return true;
     }
@@ -508,10 +520,8 @@ export default function Home() {
     setWave(1);
     setTotalWaves(nextStage.totalWaves);
     setEnemies(nextStage.enemies);
-    setActed([]);
-    setTurnStarted(false);
     setLastRoll(null);
-    setRolled(null);
+    resetPlayerTurnForNextPack(nextStage.enemies);
     setHeroes((current) => current.map((hero) => ({
       ...hero,
       shield: 0,
