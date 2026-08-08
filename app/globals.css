@@ -25,6 +25,8 @@ body {
 }
 button, input, select { font: inherit; }
 button { color: inherit; touch-action: manipulation; }
+button:not(:disabled) { transition: transform .16s ease, border-color .16s ease, background .16s ease, opacity .16s ease; }
+button:not(:disabled):active { transform: translateY(1px); }
 .game-shell {
   min-height: 100vh;
   background:
@@ -244,6 +246,7 @@ button { color: inherit; touch-action: manipulation; }
   gap: 12px;
   cursor: pointer;
   min-height: 90px;
+  animation: cardIn .22s ease both;
 }
 .hero-card:hover:not(.fallen):not(.acted), .hero-card.selected { border-color: var(--gold); }
 .hero-card.selected { box-shadow: inset 4px 0 var(--gold); }
@@ -277,6 +280,14 @@ button { color: inherit; touch-action: manipulation; }
 .hp-track i, .enemy-bar i { display: block; height: 100%; background: var(--red); transition: width .25s; }
 .bar-row b { font: 11px var(--font-geist-mono); color: #d0cabe; white-space: nowrap; }
 .shield { color: #c3d8f6; font-size: 11px; white-space: nowrap; }
+.xp-line {
+  margin-top: 7px;
+  color: #9f998d;
+  font: 10px var(--font-geist-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .gear-row { display: flex; gap: 5px; margin-top: 8px; }
 .gear-row span {
   width: 22px;
@@ -302,6 +313,24 @@ button { color: inherit; touch-action: manipulation; }
   font-size: 11px;
   cursor: pointer;
 }
+.order-buttons {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.order-buttons button {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #53564b;
+  background: #282b24;
+  color: #ded8ca;
+  cursor: pointer;
+  font-size: 14px;
+}
+.order-buttons button:disabled { opacity: .28; cursor: not-allowed; }
 .battlefield { padding: 22px clamp(18px, 2.6vw, 34px); display: flex; flex-direction: column; min-width: 0; }
 .battlefield-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .enemy-count { display: flex; align-items: center; gap: 8px; }
@@ -368,6 +397,25 @@ button { color: inherit; touch-action: manipulation; }
 }
 .action-context h3 { font-family: Georgia, serif; font-size: 21px; margin: 10px 0 7px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .action-context p { color: #b0aa9f; font-size: 13px; line-height: 1.55; margin: 0; max-width: 460px; }
+.mode-row {
+  display: flex;
+  gap: 7px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.mode-row button {
+  border: 1px solid #51544a;
+  background: #191b16;
+  color: #d8d1c2;
+  min-height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.mode-row button.active {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+}
 .dice-zone { display: grid; grid-template-columns: 82px 1fr; gap: 9px; }
 .idle-die, .rolled-die {
   grid-row: span 2;
@@ -391,7 +439,18 @@ button { color: inherit; touch-action: manipulation; }
   min-height: 47px;
 }
 .resolve-button { background: var(--gold); color: #17140d; border-color: var(--gold); }
-.roll-button:disabled, .resolve-button:disabled { opacity: .36; cursor: not-allowed; }
+.skill-button {
+  grid-column: 2;
+  border: 1px solid #7d8fb0;
+  background: #25324b;
+  color: #dbe7ff;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 12px;
+  min-height: 42px;
+  white-space: nowrap;
+}
+.roll-button:disabled, .resolve-button:disabled, .skill-button:disabled { opacity: .36; cursor: not-allowed; }
 .heal-targets { grid-column: 1/-1; display: flex; align-items: center; gap: 7px; border-top: 1px solid var(--line); padding-top: 12px; flex-wrap: wrap; }
 .heal-targets > span { color: #9d988e; font-size: 12px; margin-right: 4px; }
 .heal-targets button {
@@ -477,6 +536,54 @@ button { color: inherit; touch-action: manipulation; }
   z-index: 2;
   padding: 48px 20px;
 }
+.perk-page {
+  min-height: calc(100vh - 70px);
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 1040px;
+  margin: auto;
+  padding: 48px 20px;
+}
+.perk-page h1 {
+  font: 48px Georgia, "Times New Roman", serif;
+  margin: 12px 0 28px;
+}
+.perk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+.perk-grid button {
+  border: 1px solid var(--line);
+  background: #1b1d18;
+  color: var(--ink);
+  min-height: 170px;
+  padding: 22px;
+  text-align: left;
+  cursor: pointer;
+}
+.perk-grid button:hover:not(:disabled) {
+  border-color: var(--gold);
+  background: #242219;
+}
+.perk-grid button:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+.perk-grid b {
+  display: block;
+  color: var(--gold-bright);
+  font: 24px Georgia, serif;
+  margin-bottom: 12px;
+}
+.perk-grid span {
+  color: #b9b2a6;
+  font-size: 14px;
+  line-height: 1.6;
+}
 .gameover-page h1 { margin: 18px 0; font-size: clamp(46px, 6vw, 78px); }
 .gameover-page > p { color: #aaa499; font-family: Georgia, serif; max-width: 520px; line-height: 1.7; }
 .record-card { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); min-width: 240px; padding: 22px; margin: 24px 0; }
@@ -532,6 +639,7 @@ button { color: inherit; touch-action: manipulation; }
   .enemy-grid { max-height: 340px; grid-template-columns: 1fr 1fr; }
   .action-console { grid-template-columns: 1fr; padding: 16px; gap: 16px; }
   .dice-zone { grid-template-columns: 78px 1fr; }
+  .skill-button { grid-column: 1/-1; }
   .chronicle { padding: 18px 12px; }
   .interlude-copy { padding: 42px 20px 28px; border-right: 0; border-bottom: 1px solid var(--line); }
   .loot-panel { margin: 24px 12px 42px; min-height: 500px; }
@@ -539,6 +647,8 @@ button { color: inherit; touch-action: manipulation; }
   .loot-detail { text-align: center; }
   .equip-list { grid-column: auto; }
   .rules-grid { grid-template-columns: 1fr; }
+  .perk-grid { grid-template-columns: 1fr; }
+  .perk-page h1 { font-size: 38px; }
 }
 
 @media (max-width: 480px) {
@@ -564,4 +674,9 @@ button { color: inherit; touch-action: manipulation; }
 
 @media (prefers-reduced-motion: reduce) {
   * { scroll-behavior: auto !important; transition: none !important; }
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
