@@ -161,6 +161,12 @@ const playTone = (frequency: number, duration = 0.08, volume = 0.025) => {
   oscillator.stop(context.currentTime + duration);
 };
 
+const playChord = (frequencies: number[], duration = 0.12, volume = 0.018) => {
+  frequencies.forEach((frequency, index) => {
+    window.setTimeout(() => playTone(frequency, duration, volume), index * 32);
+  });
+};
+
 const makeDrafts = (size: 3 | 5): DraftHero[] =>
   Array.from({ length: size }, (_, index) => ({
     name: HERO_NAMES[index],
@@ -284,7 +290,7 @@ export default function Home() {
   };
 
   const startGame = () => {
-    playTone(330, 0.1);
+    playChord([262, 330, 392], 0.12, 0.02);
     const party = drafts.map(createHero);
     const nextStage = makeStage(1, partySize);
     setHeroes(party);
@@ -359,7 +365,7 @@ export default function Home() {
 
   const rollForHero = () => {
     if (!activeHero || activeHero.id !== currentHero?.id || rolled) return;
-    playTone(440, 0.06);
+    playChord([392, 523], 0.055, 0.018);
     const result = rollValue(activeHero);
     setRolled({ heroId: activeHero.id, value: result.value, detail: result.detail, mode: "normal" });
     setLastRoll(result.value);
@@ -387,7 +393,7 @@ export default function Home() {
     const artifact = makeArtifact(stage, wave);
     setArtifacts((current) => [artifact, ...current].slice(0, 18));
     appendLog(`${reason}: 유물 획득 - ${artifact.name} ${artifactValueLabel(artifact)}`);
-    playTone(680, 0.12, 0.025);
+    playChord([523, 659, 784], 0.1, 0.02);
   };
 
   const equipArtifact = (heroId: string, artifactId: string, slot: 0 | 1) => {
@@ -498,7 +504,7 @@ export default function Home() {
 
   const resolveAction = () => {
     if (!activeHero || !rolled || rolled.heroId !== activeHero.id) return;
-    playTone(activeHero.role === "healer" ? 520 : activeHero.role === "tank" ? 300 : 620, 0.07);
+    playChord(activeHero.role === "healer" ? [440, 554] : activeHero.role === "tank" ? [220, 294] : [523, 659], 0.07, 0.018);
     if (rolled.mode === "guard") {
       endHeroAction();
       return;
@@ -642,7 +648,7 @@ export default function Home() {
   const choosePerk = (pending: PendingPerk, perk: 1 | 2 | 3) => {
     const hero = heroes.find((candidate) => candidate.id === pending.heroId);
     if (!hero) return;
-    playTone(740, 0.12, 0.03);
+    playChord([587, 740, 880], 0.11, 0.02);
     const currentRank = hero.perks[perk];
     if (currentRank >= 2) return;
     setHeroes((current) => current.map((candidate) => candidate.id === hero.id ? {
@@ -677,8 +683,18 @@ export default function Home() {
         <section className="setup-page">
           <div className="setup-copy">
             <p className="eyebrow">SOLO WAVE RPG</p>
-            <h1>순서를 짜고<br /><em>웨이브를 버텨라</em></h1>
-            <p className="lead">속성은 주사위를, 직업은 행동 방식을 정합니다. 장비는 사라지고 레벨, 경험치, 특전이 원정의 핵심이 됩니다.</p>
+            <h1 className="hero-title">
+              <span>순서를 짜고</span>
+              <em>웨이브를</em>
+              <em>버텨라</em>
+            </h1>
+            <p className="lead">속성은 주사위를, 직업은 행동 방식을 정합니다. 레벨, 경험치, 특전, 유물이 원정의 핵심이 됩니다.</p>
+            <div className="hero-graphic" aria-hidden="true">
+              <span className="sigil sigil-one">D6</span>
+              <span className="sigil sigil-two">XP</span>
+              <span className="sigil sigil-three"> relic </span>
+              <i />
+            </div>
           </div>
           <div className="setup-panel">
             <div className="panel-heading">
@@ -839,8 +855,8 @@ export default function Home() {
         <div className="modal-backdrop">
           <section className="rules-modal" role="dialog" aria-modal="true" aria-labelledby="rules-title">
             <button className="modal-close" onClick={() => setShowRules(false)} aria-label="닫기">x</button>
-            <span className="chapter-mark">QUICK RULES</span>
-            <h2 id="rules-title">새 규칙 요약</h2>
+            <span className="chapter-mark">VERSION 1</span>
+            <h2 id="rules-title">규칙 요약</h2>
             <div className="rules-grid">
               <article><b>순서</b><p>위 캐릭터부터 행동하고, 적은 항상 가장 위의 생존 캐릭터를 공격합니다. 아무도 행동 전이면 순서 변경 가능.</p></article>
               <article><b>직업</b><p>탱커는 본인 실드, 딜러는 주사위만큼 공격, 힐러는 아군 회복. 패스와 장비는 없습니다.</p></article>

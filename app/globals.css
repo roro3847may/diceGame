@@ -30,7 +30,8 @@ button:not(:disabled):active { transform: translateY(1px); }
 .game-shell {
   min-height: 100vh;
   background:
-    radial-gradient(circle at 12% 8%, rgba(210,174,99,.09), transparent 30%),
+    radial-gradient(circle at 80% 12%, rgba(126,157,204,.1), transparent 28%),
+    radial-gradient(circle at 12% 8%, rgba(210,174,99,.11), transparent 30%),
     linear-gradient(rgba(255,255,255,.022) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,.022) 1px, transparent 1px),
     #11130f;
@@ -104,6 +105,8 @@ button:not(:disabled):active { transform: translateY(1px); }
   display: flex;
   flex-direction: column;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
 }
 .eyebrow, .step-kicker, .chapter-mark, .console-label, .section-title span, .battlefield-head > div > span, .loot-head > div > span {
   color: var(--gold);
@@ -118,6 +121,24 @@ button:not(:disabled):active { transform: translateY(1px); }
   margin: 22px 0;
   font-weight: 500;
 }
+.hero-title {
+  max-width: 760px;
+  font-size: clamp(68px, 7.2vw, 116px) !important;
+  line-height: .96 !important;
+  margin: 26px 0 30px !important;
+  animation: titleRise .7s cubic-bezier(.2,.8,.2,1) both;
+}
+.hero-title span,
+.hero-title em {
+  display: block;
+  white-space: nowrap;
+}
+.hero-title span {
+  color: #f7f0e4;
+}
+.hero-title em {
+  color: #f2cf7f;
+}
 .setup-copy h1 em, .interlude-copy h1 em, .gameover-page h1 em { color: var(--gold-bright); font-style: normal; }
 .lead {
   color: #bab4a8;
@@ -125,6 +146,58 @@ button:not(:disabled):active { transform: translateY(1px); }
   font-size: 18px;
   line-height: 1.75;
   max-width: 520px;
+  animation: fadeUp .7s .16s ease both;
+}
+.hero-graphic {
+  position: absolute;
+  inset: auto 38px 38px auto;
+  width: 260px;
+  height: 260px;
+  pointer-events: none;
+  opacity: .72;
+}
+.hero-graphic i {
+  position: absolute;
+  inset: 58px;
+  border: 1px solid rgba(210,174,99,.42);
+  transform: rotate(45deg);
+  animation: slowTurn 18s linear infinite;
+}
+.sigil {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(210,174,99,.5);
+  background: rgba(18,19,15,.68);
+  color: var(--gold-bright);
+  font: 700 12px var(--font-geist-mono);
+  text-transform: uppercase;
+  box-shadow: 0 18px 50px rgba(0,0,0,.28);
+}
+.sigil-one {
+  width: 64px;
+  height: 64px;
+  right: 22px;
+  top: 8px;
+  transform: rotate(12deg);
+  animation: floatOne 4.8s ease-in-out infinite;
+}
+.sigil-two {
+  width: 52px;
+  height: 52px;
+  left: 20px;
+  bottom: 40px;
+  transform: rotate(-9deg);
+  animation: floatOne 5.2s ease-in-out .4s infinite reverse;
+}
+.sigil-three {
+  width: 92px;
+  height: 34px;
+  right: 12px;
+  bottom: 34px;
+  color: #d7e0f6;
+  border-color: rgba(126,157,204,.45);
+  animation: fadeUp .8s .25s ease both;
 }
 .setup-panel {
   padding: clamp(30px, 4vw, 56px);
@@ -715,6 +788,7 @@ button:not(:disabled):active { transform: translateY(1px); }
   .setup-page, .interlude-page { display: block; }
   .setup-copy { padding: 42px 18px 28px; border-right: 0; border-bottom: 1px solid var(--line); }
   .setup-copy h1 { font-size: 43px; }
+  .hero-graphic { opacity: .28; right: -28px; bottom: 8px; transform: scale(.78); }
   .lead { font-size: 16px; line-height: 1.65; }
   .setup-panel { padding: 26px 14px 42px; max-height: none; }
   .panel-heading { align-items: center; }
@@ -752,6 +826,8 @@ button:not(:disabled):active { transform: translateY(1px); }
 @media (max-width: 480px) {
   .game-shell::before { box-shadow: inset 0 0 70px rgba(0,0,0,.62); }
   .setup-copy h1, .interlude-copy h1, .gameover-page h1 { font-size: 38px; }
+  .hero-title span, .hero-title em { white-space: normal; }
+  .hero-graphic { display: none; }
   .panel-heading { display: grid; gap: 12px; }
   .party-toggle { width: 100%; }
   .party-toggle button { flex: 1; }
@@ -777,4 +853,23 @@ button:not(:disabled):active { transform: translateY(1px); }
 @keyframes cardIn {
   from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes titleRise {
+  from { opacity: 0; transform: translateY(14px); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slowTurn {
+  to { transform: rotate(405deg); }
+}
+
+@keyframes floatOne {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
 }
