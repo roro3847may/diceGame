@@ -542,7 +542,7 @@ export default function Home() {
     return newPending.length > 0;
   };
 
-  const pauseActionForPerk = () => {
+  const pauseActionForPerk = (heroSnapshot = heroes) => {
     if (!activeHero) return;
     const nextActed = [...acted, activeHero.id];
     setActed(nextActed);
@@ -552,10 +552,10 @@ export default function Home() {
     setSelectedEnemy(livingEnemies[0]?.id ?? null);
     setSelectedAlly(null);
     setMultiTargets([]);
-    setResumeEnemyTurnAfterPerk(!heroes.some((hero) => hero.hp > 0 && !nextActed.includes(hero.id)));
+    setResumeEnemyTurnAfterPerk(!heroSnapshot.some((hero) => hero.hp > 0 && !nextActed.includes(hero.id)));
   };
 
-  const endHeroAction = () => {
+  const endHeroAction = (heroSnapshot = heroes) => {
     if (!activeHero) return;
     const nextActed = [...acted, activeHero.id];
     setActed(nextActed);
@@ -566,12 +566,12 @@ export default function Home() {
     setSelectedAlly(null);
     setMultiTargets([]);
 
-    const nextHero = heroes.find((hero) => hero.hp > 0 && !nextActed.includes(hero.id));
+    const nextHero = heroSnapshot.find((hero) => hero.hp > 0 && !nextActed.includes(hero.id));
     if (nextHero) {
       setSelectedHero(nextHero.id);
       return;
     }
-    enemyTurn();
+    enemyTurn(heroSnapshot);
   };
 
   const resetPlayerTurnForNextPack = (nextEnemies: Enemy[]) => {
@@ -648,9 +648,10 @@ export default function Home() {
       const protectedIds = [activeHero.id];
       if (activeHero.perks[1] >= 1 && heroes[activeIndex + 1]?.hp > 0) protectedIds.push(heroes[activeIndex + 1].id);
       if (activeHero.perks[1] >= 2 && heroes[activeIndex + 2]?.hp > 0) protectedIds.push(heroes[activeIndex + 2].id);
-      setHeroes((current) => current.map((hero) => protectedIds.includes(hero.id) ? { ...hero, shield: hero.shield + shield } : hero));
+      const nextHeroes = heroes.map((hero) => protectedIds.includes(hero.id) ? { ...hero, shield: hero.shield + shield } : hero);
+      setHeroes(nextHeroes);
       appendLog(`${activeHero.name} 실드 +${shield}${protectedIds.length > 1 ? `, 후열 ${protectedIds.length - 1}명 보호` : ""}`);
-      endHeroAction();
+      endHeroAction(nextHeroes);
       return;
     }
 
@@ -690,14 +691,15 @@ export default function Home() {
         const target = heroes.find((hero) => hero.id === selectedAlly) ?? activeHero;
         const xpAmount = Math.max(1, Math.floor(rolled.value * 0.7));
         const result = applyLevelUps(target, xpAmount);
-        setHeroes((current) => current.map((hero) => hero.id === target.id ? result.hero : hero));
+        const nextHeroes = heroes.map((hero) => hero.id === target.id ? result.hero : hero);
+        setHeroes(nextHeroes);
         if (result.pending.length) {
           setPendingPerks((current) => [...current, ...result.pending]);
           setPhase("perk");
         }
         appendLog(`${target.name} 경험치 +${xpAmount}`);
         if (result.pending.length) {
-          pauseActionForPerk();
+          pauseActionForPerk(nextHeroes);
           return;
         }
         endHeroAction();
@@ -707,15 +709,16 @@ export default function Home() {
       const targetLimit = activeHero.perks[2] === 2 ? 3 : activeHero.perks[2] === 1 ? 2 : 1;
       const targets = multiTargets.length ? multiTargets.slice(0, targetLimit) : [selectedAlly ?? activeHero.id];
       const healAmount = rolled.value + artifactSum(activeHero, artifacts, "mending");
-      setHeroes((current) => current.map((hero) => targets.includes(hero.id) && hero.hp > 0 ? { ...hero, hp: Math.min(maxHpOf(hero, artifacts), hero.hp + healAmount) } : hero));
+      const nextHeroes = heroes.map((hero) => targets.includes(hero.id) && hero.hp > 0 ? { ...hero, hp: Math.min(maxHpOf(hero, artifacts), hero.hp + healAmount) } : hero);
+      setHeroes(nextHeroes);
       appendLog(`${activeHero.name} 회복 ${healAmount} (${targets.length}명).`);
-      endHeroAction();
+      endHeroAction(nextHeroes);
     }
   };
 
-  const enemyTurn = () => {
-    let nextHeroes = heroes.map((hero) => ({ ...hero }));
-    let nextArtifacts = artifacts.map((artifact) => ({ ...artifact }));
+  const enemyTurn = (heroSnapshot = heroes, artifactSnapshot = artifacts) => {
+    let nextHeroes = heroSnapshot.map((hero) => ({ ...hero }));
+    let nextArtifacts = artifactSnapshot.map((artifact) => ({ ...artifact }));
     const topTarget = () => nextHeroes.find((hero) => hero.hp > 0);
     const attackLogs: string[] = [];
 
@@ -808,21 +811,22 @@ export default function Home() {
 
   const activePending = pendingPerks[0];
   const perkHero = activePending ? heroes.find((hero) => hero.id === activePending.heroId) : null;
+  const displayPhase: Phase = activePending ? "perk" : phase;
 
   return (
     <main className="game-shell">
       <header className="topbar">
-        <button className="brand" onClick={phase === "setup" ? undefined : resetGame} aria-label="처음으로">
+        <button className="brand" onClick={displayPhase === "setup" ? undefined : resetGame} aria-label="처음으로">
           <span className="brand-die">D</span>
           <span><b>끝없는 원정</b><small>WAVE TACTICS RPG</small></span>
         </button>
         <div className="top-actions">
-          {phase !== "setup" && <button className="text-button" onClick={resetGame}>새 원정</button>}
+          {displayPhase !== "setup" && <button className="text-button" onClick={resetGame}>새 원정</button>}
           <button className="rule-button" onClick={() => setShowRules(true)}>규칙</button>
         </div>
       </header>
 
-      {phase === "home" && (
+      {displayPhase === "home" && (
         <section className="home-page">
           <div className="setup-copy">
             <p className="eyebrow">SOLO WAVE RPG</p>
@@ -845,7 +849,7 @@ export default function Home() {
         </section>
       )}
 
-      {phase === "setup" && (
+      {displayPhase === "setup" && (
         <section className="setup-builder">
           <div className="setup-panel">
             <div className="panel-heading">
@@ -878,7 +882,7 @@ export default function Home() {
         </section>
       )}
 
-      {phase === "combat" && (
+      {displayPhase === "combat" && (
         <section className="combat-page">
           {transitionCue && (
             <div key={transitionCue.key} className={`transition-cue ${transitionCue.kind}`}>
@@ -1002,7 +1006,7 @@ export default function Home() {
         </section>
       )}
 
-      {phase === "perk" && perkHero && activePending && (
+      {displayPhase === "perk" && perkHero && activePending && (
         <section className="perk-page">
           <span className="chapter-mark">LEVEL {activePending.level}</span>
           <h1>{perkHero.name} 특전 선택</h1>
@@ -1019,7 +1023,7 @@ export default function Home() {
         </section>
       )}
 
-      {phase === "gameover" && (
+      {displayPhase === "gameover" && (
         <section className="gameover-page">
           <span className="chapter-mark">THE EXPEDITION ENDS</span>
           <h1>여정 종료<br /><em>스테이지 {stage}</em></h1>
