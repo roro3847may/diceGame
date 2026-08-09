@@ -9,7 +9,7 @@ type HealerMode = "heal" | "damage" | "xp";
 type ArtifactKind = "xp" | "revive" | "vigor" | "shield" | "strike" | "mending" | "ward" | "focus";
 type TransitionCue = { kind: "wave" | "stage"; title: string; subtitle: string; key: number } | null;
 type LootCue = { name: string; label: string; key: number } | null;
-type EnemyAttackCue = { key: number; targetIds: string[] } | null;
+type EnemyAttackCue = { key: number; blockedIds: string[]; hitIds: string[]; brokenIds: string[] } | null;
 
 type PerkRanks = Record<1 | 2 | 3, 0 | 1 | 2>;
 
@@ -353,10 +353,15 @@ export default function Home() {
     lootCueTimer.current = window.setTimeout(() => setLootCue(null), 1050);
   };
 
-  const showEnemyAttackCue = (targetIds: string[]) => {
+  const showEnemyAttackCue = (cue: Omit<NonNullable<EnemyAttackCue>, "key">) => {
     if (enemyCueTimer.current) window.clearTimeout(enemyCueTimer.current);
     cueSerial.current += 1;
-    setEnemyAttackCue({ key: cueSerial.current, targetIds: [...new Set(targetIds)] });
+    setEnemyAttackCue({
+      key: cueSerial.current,
+      blockedIds: [...new Set(cue.blockedIds)],
+      hitIds: [...new Set(cue.hitIds)],
+      brokenIds: [...new Set(cue.brokenIds)],
+    });
     enemyCueTimer.current = window.setTimeout(() => setEnemyAttackCue(null), 1500);
   };
 
@@ -751,19 +756,22 @@ export default function Home() {
     let nextArtifacts = artifactSnapshot.map((artifact) => ({ ...artifact }));
     const topTarget = () => nextHeroes.find((hero) => hero.hp > 0);
     const attackLogs: string[] = [];
-    const attackedHeroIds: string[] = [];
+    const attackCue = { blockedIds: [] as string[], hitIds: [] as string[], brokenIds: [] as string[] };
 
     for (const enemy of livingEnemies) {
       const target = topTarget();
       if (!target) break;
-      attackedHeroIds.push(target.id);
       if (target.guarded) {
         nextHeroes = nextHeroes.map((hero) => hero.id === target.id ? { ...hero, guarded: false } : hero);
+        attackCue.blockedIds.push(target.id);
         attackLogs.push(`${target.name}의 수호막이 공격을 무마.`);
         continue;
       }
       const absorbed = Math.min(target.shield, enemy.attack);
       const reduced = Math.max(0, enemy.attack - absorbed - artifactSum(target, nextArtifacts, "ward"));
+      if (target.shield > 0 && reduced > 0) attackCue.brokenIds.push(target.id);
+      else if (reduced > 0) attackCue.hitIds.push(target.id);
+      else attackCue.blockedIds.push(target.id);
       let revived = false;
       nextHeroes = nextHeroes.map((hero) => {
         if (hero.id !== target.id) return hero;
@@ -786,7 +794,7 @@ export default function Home() {
     nextHeroes = nextHeroes.map((hero) => ({ ...hero, shield: 0 }));
 
     if (nextHeroes.every((hero) => hero.hp <= 0)) {
-      showEnemyAttackCue(attackedHeroIds);
+      showEnemyAttackCue(attackCue);
       playSfx("enemy");
       setHeroes(nextHeroes);
       setArtifacts(nextArtifacts);
@@ -796,7 +804,7 @@ export default function Home() {
     }
 
     setHeroes(nextHeroes);
-    showEnemyAttackCue(attackedHeroIds);
+    showEnemyAttackCue(attackCue);
     playSfx("enemy");
     setArtifacts(nextArtifacts);
     setActed([]);
@@ -958,7 +966,7 @@ export default function Home() {
                 {heroes.map((hero, index) => {
                   const showRelicBag = artifacts.length > 0 && hero.hp > 0 && relicBagHeroId === hero.id;
                   return (
-                  <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${acted.includes(hero.id) ? "acted" : ""} ${hero.hp <= 0 ? "fallen" : ""} ${showRelicBag ? "expanded" : ""} ${enemyAttackCue?.targetIds.includes(hero.id) ? "enemy-hit" : ""}`}>
+                  <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${acted.includes(hero.id) ? "acted" : ""} ${hero.hp <= 0 ? "fallen" : ""} ${showRelicBag ? "expanded" : ""} ${enemyAttackCue?.blockedIds.includes(hero.id) ? "enemy-blocked" : ""} ${enemyAttackCue?.hitIds.includes(hero.id) ? "enemy-hit" : ""} ${enemyAttackCue?.brokenIds.includes(hero.id) ? "enemy-broken" : ""}`}>
                     <div className={`hero-avatar affinity-${hero.affinity}`}>{AFFINITIES[hero.affinity].mark}<small>{ROLES[hero.role].mark}</small></div>
                     <div className="hero-info">
                       <div className="hero-name"><h3>{hero.name}</h3><span>Lv.{hero.level} {AFFINITIES[hero.affinity].label} · {ROLES[hero.role].label}</span></div>
