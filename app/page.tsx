@@ -442,7 +442,6 @@ export default function Home() {
     setRolled(null);
     setLastRoll(null);
     setPendingPerks([]);
-    setEnemyTargetPlan({});
     setResumeEnemyTurnAfterPerk(false);
     setRollSupport(null);
     setLog([`스테이지 1, 웨이브 1/${nextStage.totalWaves} 시작.`, "위에 있는 캐릭터부터 행동합니다."]);
@@ -462,6 +461,7 @@ export default function Home() {
     setWave(1);
     setActed([]);
     setPendingPerks([]);
+    setEnemyTargetPlan({});
     setResumeEnemyTurnAfterPerk(false);
     setSelectedHero(null);
     setRolled(null);
