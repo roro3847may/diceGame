@@ -467,6 +467,10 @@ button:not(:disabled):active { transform: translateY(1px); }
 .hero-card.selected { box-shadow: inset 4px 0 var(--gold); }
 .hero-card.acted { opacity: .52; cursor: default; }
 .hero-card.fallen { opacity: .3; filter: grayscale(1); cursor: default; }
+.hero-card.enemy-hit {
+  animation: enemyHit 1.5s ease both;
+  border-color: #d95848;
+}
 .affinity-border-physical { border-left: 3px solid var(--red); }
 .affinity-border-agility { border-left: 3px solid var(--green); }
 .affinity-border-magic { border-left: 3px solid var(--blue); }
@@ -896,7 +900,7 @@ button:not(:disabled):active { transform: translateY(1px); }
 }
 .rolled-die span { font-size: 42px; align-self: end; }
 .rolled-die small { font: 10px var(--font-geist-mono); color: #b2aa9b; text-align: center; align-self: start; padding: 5px; overflow-wrap: anywhere; }
-.roll-button, .resolve-button {
+.roll-button, .resolve-button, .skip-button {
   border: 1px solid #5c5f54;
   background: #303329;
   cursor: pointer;
@@ -906,6 +910,12 @@ button:not(:disabled):active { transform: translateY(1px); }
   min-height: 40px;
 }
 .resolve-button { background: var(--gold); color: #17140d; border-color: var(--gold); }
+.skip-button {
+  grid-column: 2;
+  background: #1d1f19;
+  color: #c9c2b5;
+  border-color: #46493f;
+}
 .skill-button {
   grid-column: 2;
   border: 1px solid #7d8fb0;
@@ -917,7 +927,7 @@ button:not(:disabled):active { transform: translateY(1px); }
   min-height: 38px;
   white-space: nowrap;
 }
-.roll-button:disabled, .resolve-button:disabled, .skill-button:disabled { opacity: .36; cursor: not-allowed; }
+.roll-button:disabled, .resolve-button:disabled, .skip-button:disabled, .skill-button:disabled { opacity: .36; cursor: not-allowed; }
 .heal-targets { grid-column: 1/-1; display: flex; align-items: center; gap: 7px; border-top: 1px solid var(--line); padding-top: 9px; flex-wrap: wrap; }
 .heal-targets > span { color: #9d988e; font-size: 12px; margin-right: 4px; }
 .heal-targets button {
@@ -1185,6 +1195,16 @@ button:not(:disabled):active { transform: translateY(1px); }
   50% { transform: translate(-1px, 1px) rotate(-2deg); }
   75% { transform: translate(1px, 1px) rotate(1deg); }
   100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+@keyframes enemyHit {
+  0% { transform: translateX(0); box-shadow: inset 0 0 0 rgba(217,88,72,0), 0 0 0 rgba(217,88,72,0); }
+  8% { transform: translateX(-5px); box-shadow: inset 0 0 22px rgba(217,88,72,.38), 0 0 20px rgba(217,88,72,.2); }
+  16% { transform: translateX(5px); }
+  24% { transform: translateX(-3px); }
+  34% { transform: translateX(2px); }
+  48% { transform: translateX(0); box-shadow: inset 0 0 26px rgba(217,88,72,.28), 0 0 18px rgba(217,88,72,.14); }
+  100% { transform: translateX(0); box-shadow: inset 0 0 0 rgba(217,88,72,0), 0 0 0 rgba(217,88,72,0); }
 }
 
 @keyframes waveSweep {

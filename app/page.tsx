@@ -9,6 +9,7 @@ type HealerMode = "heal" | "damage" | "xp";
 type ArtifactKind = "xp" | "revive" | "vigor" | "shield" | "strike" | "mending" | "ward" | "focus";
 type TransitionCue = { kind: "wave" | "stage"; title: string; subtitle: string; key: number } | null;
 type LootCue = { name: string; label: string; key: number } | null;
+type EnemyAttackCue = { key: number; targetIds: string[] } | null;
 
 type PerkRanks = Record<1 | 2 | 3, 0 | 1 | 2>;
 
@@ -219,8 +220,8 @@ const enemiesForWave = (stage: number, wave: number, totalWaves: number, partySi
   const count = clamp(baseCount + Math.floor((wave - 1) / 2) + (stage > 7 ? 1 : 0), 1, partySize === 3 ? 3 : 4);
   return Array.from({ length: count }, (_, index) => {
     const elite = wave === totalWaves && index === count - 1 ? 1 : 0;
-    const hp = Math.floor(5 + stage * 2.05 + wave * 1.05 + elite * (3 + stage * 0.7));
-    const attack = Math.max(1, Math.floor(1.4 + stage * 0.85 + wave * 0.45 + elite));
+    const hp = Math.floor(6 + stage * 2.25 + wave * 1.12 + elite * (3 + stage * 0.78));
+    const attack = Math.max(1, Math.floor(1.6 + stage * 0.92 + wave * 0.48 + elite));
     return {
       id: `enemy-${stage}-${wave}-${index}-${Math.random()}`,
       name: `${ENEMY_NAMES[(stage + wave + index) % ENEMY_NAMES.length]} ${wave}-${index + 1}`,
@@ -305,17 +306,18 @@ export default function Home() {
   const [rolled, setRolled] = useState<RollState | null>(null);
   const [rollingValue, setRollingValue] = useState<number | null>(null);
   const [lastRoll, setLastRoll] = useState<number | null>(null);
-  const [turnStarted, setTurnStarted] = useState(false);
   const [pendingPerks, setPendingPerks] = useState<PendingPerk[]>([]);
   const [log, setLog] = useState<string[]>(["파티를 만들고 원정을 시작하세요."]);
   const [showRules, setShowRules] = useState(true);
   const [transitionCue, setTransitionCue] = useState<TransitionCue>(null);
   const [lootCue, setLootCue] = useState<LootCue>(null);
+  const [enemyAttackCue, setEnemyAttackCue] = useState<EnemyAttackCue>(null);
   const [deleteRelicMode, setDeleteRelicMode] = useState(false);
   const [resumeEnemyTurnAfterPerk, setResumeEnemyTurnAfterPerk] = useState(false);
   const [inspectedArtifactId, setInspectedArtifactId] = useState<string | null>(null);
   const [relicBagHeroId, setRelicBagHeroId] = useState<string | null>(null);
   const lootCueTimer = useRef<number | null>(null);
+  const enemyCueTimer = useRef<number | null>(null);
   const cueSerial = useRef(0);
 
   const livingHeroes = useMemo(() => heroes.filter((hero) => hero.hp > 0), [heroes]);
@@ -327,7 +329,7 @@ export default function Home() {
   const currentHero = heroes.find((hero) => hero.hp > 0 && !acted.includes(hero.id)) ?? null;
   const activeHero = currentHero;
   const inspectedArtifact = inspectedArtifactId ? artifacts.find((artifact) => artifact.id === inspectedArtifactId) ?? null : null;
-  const canReorder = phase === "combat" && !turnStarted && !rolled && rollingValue === null;
+  const canReorder = phase === "combat" && livingHeroes.length > 0 && !rolled && rollingValue === null;
   const turnText = artifacts.length > 0 && phase === "combat"
     ? `유물을 장착하세요 · ${currentHero ? `${currentHero.name} 행동` : "적 턴"}`
     : currentHero ? `${currentHero.name} 행동` : "적 턴";
@@ -346,6 +348,13 @@ export default function Home() {
     cueSerial.current += 1;
     setLootCue({ name: artifact.name, label: artifactValueLabel(artifact), key: cueSerial.current });
     lootCueTimer.current = window.setTimeout(() => setLootCue(null), 1050);
+  };
+
+  const showEnemyAttackCue = (targetIds: string[]) => {
+    if (enemyCueTimer.current) window.clearTimeout(enemyCueTimer.current);
+    cueSerial.current += 1;
+    setEnemyAttackCue({ key: cueSerial.current, targetIds: [...new Set(targetIds)] });
+    enemyCueTimer.current = window.setTimeout(() => setEnemyAttackCue(null), 1500);
   };
 
   const changePartySize = (size: 3 | 5) => {
@@ -383,7 +392,6 @@ export default function Home() {
     setMultiTargets(party[0]?.id ? [party[0].id] : []);
     setRolled(null);
     setLastRoll(null);
-    setTurnStarted(false);
     setPendingPerks([]);
     setResumeEnemyTurnAfterPerk(false);
     setLog([`스테이지 1, 웨이브 1/${nextStage.totalWaves} 시작.`, "위에 있는 캐릭터부터 행동합니다."]);
@@ -408,7 +416,6 @@ export default function Home() {
     setRolled(null);
     setRollingValue(null);
     setLastRoll(null);
-    setTurnStarted(false);
     setDeleteRelicMode(false);
     setRelicBagHeroId(null);
     setLog(["새 원정을 준비합니다."]);
@@ -450,7 +457,6 @@ export default function Home() {
   const rollForHero = () => {
     if (!activeHero || activeHero.id !== currentHero?.id || rolled || rollingValue !== null) return;
     playSfx("roll");
-    setTurnStarted(true);
     let ticks = 0;
     const roller = window.setInterval(() => {
       ticks += 1;
@@ -477,7 +483,6 @@ export default function Home() {
     if (!activeHero || activeHero.role !== "tank" || activeHero.id !== currentHero?.id || activeHero.guardCharges <= 0 || rolled || rollingValue !== null) return;
     setHeroes((current) => current.map((hero) => hero.id === activeHero.id ? { ...hero, guardCharges: hero.guardCharges - 1, guarded: true } : hero));
     setRolled({ heroId: activeHero.id, value: 0, detail: "다음 공격 1회 무마", mode: "guard" });
-    setTurnStarted(true);
     appendLog(`${activeHero.name}이 수호막을 펼쳤습니다.`);
   };
 
@@ -584,9 +589,14 @@ export default function Home() {
     enemyTurn(heroSnapshot);
   };
 
+  const skipHeroAction = () => {
+    if (!activeHero || rolled || rollingValue !== null) return;
+    appendLog(`${activeHero.name} 행동을 넘겼습니다.`);
+    endHeroAction();
+  };
+
   const resetPlayerTurnForNextPack = (nextEnemies: Enemy[]) => {
     setActed([]);
-    setTurnStarted(false);
     setRolled(null);
     setRollingValue(null);
     setSelectedHero(heroes.find((hero) => hero.hp > 0)?.id ?? null);
@@ -731,10 +741,12 @@ export default function Home() {
     let nextArtifacts = artifactSnapshot.map((artifact) => ({ ...artifact }));
     const topTarget = () => nextHeroes.find((hero) => hero.hp > 0);
     const attackLogs: string[] = [];
+    const attackedHeroIds: string[] = [];
 
     for (const enemy of livingEnemies) {
       const target = topTarget();
       if (!target) break;
+      attackedHeroIds.push(target.id);
       if (target.guarded) {
         nextHeroes = nextHeroes.map((hero) => hero.id === target.id ? { ...hero, guarded: false } : hero);
         attackLogs.push(`${target.name}의 수호막이 공격을 무마.`);
@@ -762,6 +774,8 @@ export default function Home() {
     }
 
     if (nextHeroes.every((hero) => hero.hp <= 0)) {
+      showEnemyAttackCue(attackedHeroIds);
+      playSfx("enemy");
       setHeroes(nextHeroes);
       setArtifacts(nextArtifacts);
       setPhase("gameover");
@@ -770,9 +784,10 @@ export default function Home() {
     }
 
     setHeroes(nextHeroes);
+    showEnemyAttackCue(attackedHeroIds);
+    playSfx("enemy");
     setArtifacts(nextArtifacts);
     setActed([]);
-    setTurnStarted(false);
     setSelectedHero(nextHeroes.find((hero) => hero.hp > 0)?.id ?? null);
     setLog((current) => ["적 턴 종료.", ...attackLogs.reverse(), ...current].slice(0, 12));
   };
@@ -919,7 +934,7 @@ export default function Home() {
                 {heroes.map((hero, index) => {
                   const showRelicBag = artifacts.length > 0 && hero.hp > 0 && relicBagHeroId === hero.id;
                   return (
-                  <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${hero.hp <= 0 ? "fallen" : ""} ${showRelicBag ? "expanded" : ""}`}>
+                  <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${acted.includes(hero.id) ? "acted" : ""} ${hero.hp <= 0 ? "fallen" : ""} ${showRelicBag ? "expanded" : ""} ${enemyAttackCue?.targetIds.includes(hero.id) ? "enemy-hit" : ""}`}>
                     <div className={`hero-avatar affinity-${hero.affinity}`}>{AFFINITIES[hero.affinity].mark}<small>{ROLES[hero.role].mark}</small></div>
                     <div className="hero-info">
                       <div className="hero-name"><h3>{hero.name}</h3><span>Lv.{hero.level} {AFFINITIES[hero.affinity].label} · {ROLES[hero.role].label}</span></div>
@@ -1037,6 +1052,7 @@ export default function Home() {
                   {rolled ? <div className="rolled-die"><span>{rolled.mode === "guard" ? "막" : rolled.value}</span><small>{rolled.detail}</small></div> : <div className={`idle-die ${rollingValue !== null ? "rolling" : ""}`}>{rollingValue ?? "?"}</div>}
                   <button className="roll-button" onClick={rollForHero} disabled={!activeHero || activeHero.id !== currentHero?.id || !!rolled || rollingValue !== null}>{rollingValue !== null ? "굴리는 중" : rolled ? "굴림 완료" : "주사위 굴리기"}</button>
                   <button className="resolve-button" onClick={resolveAction} disabled={!rolled}>{activeHero?.role === "tank" ? "실드 얻기" : activeHero?.role === "healer" ? "적용하기" : "공격하기"}</button>
+                  <button className="skip-button" onClick={skipHeroAction} disabled={!activeHero || !!rolled || rollingValue !== null}>스킵</button>
                   {activeHero?.role === "tank" && activeHero.guardCharges > 0 && <button className="skill-button" onClick={useGuard} disabled={!!rolled}>수호막 {activeHero.guardCharges}</button>}
                 </div>
                 {activeHero?.role === "healer" && rolled && healerMode !== "damage" && (
