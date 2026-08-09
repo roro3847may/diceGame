@@ -906,8 +906,10 @@ export default function Home() {
             <section className="party-column">
               <div className="section-title"><div><span>ORDER</span><h2>파티 순서</h2></div><small>{canReorder ? "변경 가능" : "고정"}</small></div>
               <div className="hero-list">
-                {heroes.map((hero, index) => (
-                  <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${hero.hp <= 0 ? "fallen" : ""}`}>
+                {heroes.map((hero, index) => {
+                  const showRelicBag = artifacts.length > 0 && hero.hp > 0 && currentHero?.id === hero.id;
+                  return (
+                  <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${hero.hp <= 0 ? "fallen" : ""} ${showRelicBag ? "expanded" : ""}`}>
                     <div className={`hero-avatar affinity-${hero.affinity}`}>{AFFINITIES[hero.affinity].mark}<small>{ROLES[hero.role].mark}</small></div>
                     <div className="hero-info">
                       <div className="hero-name"><h3>{hero.name}</h3><span>Lv.{hero.level} {AFFINITIES[hero.affinity].label} · {ROLES[hero.role].label}</span></div>
@@ -921,7 +923,7 @@ export default function Home() {
                           </button>;
                         })}
                       </div>
-                      {artifacts.length > 0 && <div className={`relic-bag ${deleteRelicMode ? "delete-mode" : ""}`}>
+                      {showRelicBag && <div className={`relic-bag ${deleteRelicMode ? "delete-mode" : ""}`}>
                         <div className="relic-bag-head">
                           <span>{deleteRelicMode ? "버릴 유물 선택" : `가방 ${unequippedArtifacts.length}`}</span>
                           <button
@@ -953,7 +955,8 @@ export default function Home() {
                     </div>
                     {canReorder && <div className="order-buttons"><button onClick={() => moveHero(hero.id, -1)} disabled={index === 0}>↑</button><button onClick={() => moveHero(hero.id, 1)} disabled={index === heroes.length - 1}>↓</button></div>}
                   </article>
-                ))}
+                  );
+                })}
               </div>
             </section>
 
