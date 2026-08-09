@@ -10,6 +10,7 @@ type ArtifactKind = "xp" | "revive" | "vigor" | "shield" | "strike" | "mending" 
 type TransitionCue = { kind: "wave" | "stage"; title: string; subtitle: string; key: number } | null;
 type LootCue = { name: string; label: string; key: number } | null;
 type EnemyAttackCue = { key: number; blockedIds: string[]; hitIds: string[]; brokenIds: string[] } | null;
+type EnemyTargetPlan = Record<string, string>;
 
 type PerkRanks = Record<1 | 2 | 3, 0 | 1 | 2>;
 
@@ -318,6 +319,7 @@ export default function Home() {
   const [inspectedArtifactId, setInspectedArtifactId] = useState<string | null>(null);
   const [relicBagHeroId, setRelicBagHeroId] = useState<string | null>(null);
   const [rollSupport, setRollSupport] = useState<{ heroId: string; amount: number } | null>(null);
+  const [enemyTargetPlan, setEnemyTargetPlan] = useState<EnemyTargetPlan>({});
   const lootCueTimer = useRef<number | null>(null);
   const enemyCueTimer = useRef<number | null>(null);
   const choosingPerkRef = useRef(false);
@@ -365,6 +367,44 @@ export default function Home() {
     enemyCueTimer.current = window.setTimeout(() => setEnemyAttackCue(null), 1500);
   };
 
+  const pickWeightedTarget = (heroList: Hero[]) => {
+    const alive = heroList.filter((hero) => hero.hp > 0);
+    if (!alive.length) return null;
+    const totalWeight = alive.reduce((sum, _, index) => sum + alive.length - index, 0);
+    let roll = randomInt(1, totalWeight);
+    for (let index = 0; index < alive.length; index += 1) {
+      roll -= alive.length - index;
+      if (roll <= 0) return alive[index];
+    }
+    return alive[0];
+  };
+
+  const makeEnemyTargetPlan = (heroList: Hero[], enemyList: Enemy[]) =>
+    enemyList.reduce<EnemyTargetPlan>((plan, enemy) => {
+      if (enemy.hp <= 0) return plan;
+      const target = pickWeightedTarget(heroList);
+      if (target) plan[enemy.id] = target.id;
+      return plan;
+    }, {});
+
+  const clearTemporaryShields = () => {
+    setHeroes((current) => current.map((hero) => hero.shield > 0 ? { ...hero, shield: 0 } : hero));
+  };
+
+  const enqueuePendingPerks = (items: PendingPerk[]) => {
+    if (!items.length) return;
+    setPendingPerks((current) => {
+      const seen = new Set<string>();
+      return [...current, ...items].filter((item) => {
+        const key = `${item.heroId}:${item.level}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    });
+    setPhase("perk");
+  };
+
   const changePartySize = (size: 3 | 5) => {
     setPartySize(size);
     setDrafts(makeDrafts(size));
@@ -389,6 +429,7 @@ export default function Home() {
     const nextStage = makeStage(1, partySize);
     setHeroes(party);
     setEnemies(nextStage.enemies);
+    setEnemyTargetPlan(makeEnemyTargetPlan(party, nextStage.enemies));
     setArtifacts([]);
     setStage(1);
     setWave(1);
@@ -401,6 +442,7 @@ export default function Home() {
     setRolled(null);
     setLastRoll(null);
     setPendingPerks([]);
+    setEnemyTargetPlan({});
     setResumeEnemyTurnAfterPerk(false);
     setRollSupport(null);
     setLog([`스테이지 1, 웨이브 1/${nextStage.totalWaves} 시작.`, "위에 있는 캐릭터부터 행동합니다."]);
@@ -439,6 +481,7 @@ export default function Home() {
       const next = [...current];
       [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
       setSelectedHero(next.find((hero) => hero.hp > 0)?.id ?? null);
+      setEnemyTargetPlan(makeEnemyTargetPlan(next, enemies));
       return next;
     });
   };
@@ -563,8 +606,7 @@ export default function Home() {
     });
     setHeroes(nextHeroes);
     if (newPending.length) {
-      setPendingPerks((current) => [...current, ...newPending]);
-      setPhase("perk");
+      enqueuePendingPerks(newPending);
     }
     appendLog(`${reason}: 파티 경험치 +${amount}${dealerBonus ? `, 막타 보너스 +${dealerBonus.amount}` : ""}`);
     if (levelNotes.length) appendLog(levelNotes.join(", "));
@@ -611,6 +653,7 @@ export default function Home() {
   };
 
   const resetPlayerTurnForNextPack = (nextEnemies: Enemy[]) => {
+    clearTemporaryShields();
     setActed([]);
     setRolled(null);
     setRollingValue(null);
@@ -620,6 +663,7 @@ export default function Home() {
     setMultiTargets([]);
     setHealerMode("heal");
     setRollSupport(null);
+    setEnemyTargetPlan(makeEnemyTargetPlan(heroes.map((hero) => ({ ...hero, shield: 0 })), nextEnemies));
   };
 
   const checkWaveEnd = (nextEnemies: Enemy[], killer?: Hero) => {
@@ -729,8 +773,7 @@ export default function Home() {
         const nextHeroes = heroes.map((hero) => hero.id === target.id ? result.hero : hero);
         setHeroes(nextHeroes);
         if (result.pending.length) {
-          setPendingPerks((current) => [...current, ...result.pending]);
-          setPhase("perk");
+          enqueuePendingPerks(result.pending);
         }
         appendLog(`${target.name} 경험치 +${xpAmount}`);
         if (result.pending.length) {
@@ -759,7 +802,8 @@ export default function Home() {
     const attackCue = { blockedIds: [] as string[], hitIds: [] as string[], brokenIds: [] as string[] };
 
     for (const enemy of livingEnemies) {
-      const target = topTarget();
+      const plannedTarget = nextHeroes.find((hero) => hero.id === enemyTargetPlan[enemy.id] && hero.hp > 0);
+      const target = plannedTarget ?? pickWeightedTarget(nextHeroes) ?? topTarget();
       if (!target) break;
       if (target.guarded) {
         nextHeroes = nextHeroes.map((hero) => hero.id === target.id ? { ...hero, guarded: false } : hero);
@@ -809,6 +853,7 @@ export default function Home() {
     setArtifacts(nextArtifacts);
     setActed([]);
     setRollSupport(null);
+    setEnemyTargetPlan(makeEnemyTargetPlan(nextHeroes, enemies));
     setSelectedHero(nextHeroes.find((hero) => hero.hp > 0)?.id ?? null);
     setLog((current) => ["적 턴 종료.", ...attackLogs.reverse(), ...current].slice(0, 12));
   };
@@ -851,7 +896,7 @@ export default function Home() {
       guardCharges: candidate.role === "tank" && perk === 3 ? currentRank + 1 : candidate.guardCharges,
       reviveCharges: candidate.role === "healer" && perk === 3 ? currentRank + 1 : candidate.reviveCharges,
     } : candidate));
-    const rest = pendingPerks.slice(1);
+    const rest = pendingPerks.filter((item) => item.heroId !== pending.heroId || item.level !== pending.level);
     setPendingPerks(rest);
     appendLog(`${hero.name} 특전 획득: ${PERKS[hero.role][perk].title} ${currentRank + 1}단계`);
     if (rest.length === 0) {
@@ -965,12 +1010,16 @@ export default function Home() {
               <div className="hero-list">
                 {heroes.map((hero, index) => {
                   const showRelicBag = artifacts.length > 0 && hero.hp > 0 && relicBagHeroId === hero.id;
+                  const targetingEnemies = livingEnemies.filter((enemy) => enemyTargetPlan[enemy.id] === hero.id);
                   return (
                   <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${acted.includes(hero.id) ? "acted" : ""} ${hero.hp <= 0 ? "fallen" : ""} ${showRelicBag ? "expanded" : ""} ${enemyAttackCue?.blockedIds.includes(hero.id) ? "enemy-blocked" : ""} ${enemyAttackCue?.hitIds.includes(hero.id) ? "enemy-hit" : ""} ${enemyAttackCue?.brokenIds.includes(hero.id) ? "enemy-broken" : ""}`}>
                     <div className={`hero-avatar affinity-${hero.affinity}`}>{AFFINITIES[hero.affinity].mark}<small>{ROLES[hero.role].mark}</small></div>
                     <div className="hero-info">
                       <div className="hero-name"><h3>{hero.name}</h3><span>Lv.{hero.level} {AFFINITIES[hero.affinity].label} · {ROLES[hero.role].label}</span></div>
                       <div className="bar-row"><div className="hp-track"><i style={{ width: hpBar(hero.hp, maxHpOf(hero, artifacts)) }} /></div><b>{hero.hp}/{maxHpOf(hero, artifacts)}</b>{hero.shield > 0 && <span className="shield">실드 {hero.shield}</span>}</div>
+                      {targetingEnemies.length > 0 && <div className="target-preview" aria-label={`${hero.name}을 공격 예정인 적`}>
+                        {targetingEnemies.map((enemy) => <span key={enemy.id}>{enemy.name}<b>{enemy.attack}</b></span>)}
+                      </div>}
                       <div className="xp-line">XP {hero.xp}/{xpToNext(hero.level)} · 특전 {hero.perks[1]}/{hero.perks[2]}/{hero.perks[3]}</div>
                       <div className="hero-relics">
                         {[0, 1].map((slot) => {
@@ -1140,7 +1189,7 @@ export default function Home() {
             <span className="chapter-mark">VERSION 1</span>
             <h2 id="rules-title">규칙 요약</h2>
             <div className="rules-grid">
-              <article><b>순서</b><p>위 캐릭터부터 행동하고, 적은 항상 가장 위의 생존 캐릭터를 공격합니다. 내 턴에는 행동 대기 중 언제든 순서 변경 가능.</p></article>
+              <article><b>순서</b><p>위 캐릭터부터 행동합니다. 적은 앞쪽 캐릭터를 더 자주 노리며, 공격 예정 대상은 카드에 미리 표시됩니다.</p></article>
               <article><b>직업</b><p>탱커는 다음 적 턴까지만 유지되는 실드, 딜러는 주사위만큼 공격, 힐러는 아군을 회복합니다.</p></article>
               <article><b>성장</b><p>막타, 웨이브, 스테이지로 경험치를 얻고 레벨마다 최종 주사위와 최대 체력이 증가합니다.</p></article>
               <article><b>유물</b><p>유물은 캐릭터당 2개까지 장착합니다. 내 턴에는 언제든 교체 가능하며, 대부분 패시브로 작동합니다.</p></article>

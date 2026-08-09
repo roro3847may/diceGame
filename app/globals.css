@@ -498,6 +498,29 @@ button:not(:disabled):active { transform: translateY(1px); }
 .hp-track i, .enemy-bar i { display: block; height: 100%; background: var(--red); transition: width .25s; }
 .bar-row b { font: 11px var(--font-geist-mono); color: #d0cabe; white-space: nowrap; }
 .shield { color: #c3d8f6; font-size: 11px; white-space: nowrap; }
+.target-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+.target-preview span {
+  max-width: 132px;
+  border: 1px solid rgba(217, 88, 72, .42);
+  border-radius: 999px;
+  background: rgba(73, 31, 25, .48);
+  color: #f1b4aa;
+  padding: 3px 6px;
+  font-size: 9px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.target-preview b {
+  margin-left: 4px;
+  color: #ffd6ce;
+  font: 800 9px var(--font-geist-mono);
+}
 .xp-line {
   margin-top: 5px;
   color: #9f998d;
