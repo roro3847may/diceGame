@@ -549,6 +549,23 @@ button:not(:disabled):active { transform: translateY(1px); }
   background: #3a301e;
   color: var(--gold-bright);
 }
+.relic-manage {
+  width: 100%;
+  margin-top: 6px;
+  min-height: 24px;
+  border: 1px solid #4f5148;
+  border-radius: 8px;
+  background: #1a1c16;
+  color: #cfc8b9;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.relic-manage.active {
+  border-color: var(--gold);
+  background: #2d2819;
+  color: var(--gold-bright);
+}
 .relic-bag {
   margin-top: 7px;
   border: 1px solid rgba(69, 72, 62, .8);

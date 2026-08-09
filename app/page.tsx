@@ -314,6 +314,7 @@ export default function Home() {
   const [deleteRelicMode, setDeleteRelicMode] = useState(false);
   const [resumeEnemyTurnAfterPerk, setResumeEnemyTurnAfterPerk] = useState(false);
   const [inspectedArtifactId, setInspectedArtifactId] = useState<string | null>(null);
+  const [relicBagHeroId, setRelicBagHeroId] = useState<string | null>(null);
   const lootCueTimer = useRef<number | null>(null);
   const cueSerial = useRef(0);
 
@@ -388,6 +389,7 @@ export default function Home() {
     setLog([`스테이지 1, 웨이브 1/${nextStage.totalWaves} 시작.`, "위에 있는 캐릭터부터 행동합니다."]);
     setShowRules(false);
     setDeleteRelicMode(false);
+    setRelicBagHeroId(null);
     setPhase("combat");
   };
 
@@ -408,6 +410,7 @@ export default function Home() {
     setLastRoll(null);
     setTurnStarted(false);
     setDeleteRelicMode(false);
+    setRelicBagHeroId(null);
     setLog(["새 원정을 준비합니다."]);
   };
 
@@ -441,7 +444,7 @@ export default function Home() {
       detail = lastRoll === null ? "복사값 없음: 1" : `직전값 ${lastRoll}`;
     }
     const value = base + hero.level - 1 + artifactSum(hero, artifacts, "focus");
-    return { value, detail: `${detail} + 레벨 ${hero.level - 1}` };
+    return { base, value, detail: `${detail} + 레벨 ${hero.level - 1}` };
   };
 
   const rollForHero = () => {
@@ -457,7 +460,7 @@ export default function Home() {
         const result = rollValue(activeHero);
         setRollingValue(null);
         setRolled({ heroId: activeHero.id, value: result.value, detail: result.detail, mode: "normal" });
-        setLastRoll(result.value);
+        setLastRoll(result.base);
         if (activeHero.role === "healer") {
           setSelectedAlly(livingHeroes[0]?.id ?? activeHero.id);
           setMultiTargets([livingHeroes[0]?.id ? livingHeroes[0].id : activeHero.id]);
@@ -491,6 +494,7 @@ export default function Home() {
     if (phase !== "combat" || !artifactId) return;
     setDeleteRelicMode(false);
     setInspectedArtifactId(null);
+    setRelicBagHeroId(heroId);
     playSfx("equip");
     setHeroes((current) => current.map((hero) => {
       const nextSlots: [string | null, string | null] = hero.artifacts.includes(artifactId)
@@ -509,6 +513,7 @@ export default function Home() {
     if (phase !== "combat") return;
     setDeleteRelicMode(false);
     setInspectedArtifactId(null);
+    setRelicBagHeroId(heroId);
     setHeroes((current) => current.map((hero) => {
       if (hero.id !== heroId) return hero;
       const nextSlots: [string | null, string | null] = [...hero.artifacts] as [string | null, string | null];
@@ -912,7 +917,7 @@ export default function Home() {
               <div className="section-title"><div><span>ORDER</span><h2>파티 순서</h2></div><small>{canReorder ? "변경 가능" : "고정"}</small></div>
               <div className="hero-list">
                 {heroes.map((hero, index) => {
-                  const showRelicBag = artifacts.length > 0 && hero.hp > 0 && currentHero?.id === hero.id;
+                  const showRelicBag = artifacts.length > 0 && hero.hp > 0 && relicBagHeroId === hero.id;
                   return (
                   <article key={hero.id} className={`hero-card affinity-border-${hero.affinity} ${currentHero?.id === hero.id ? "selected" : ""} ${hero.hp <= 0 ? "fallen" : ""} ${showRelicBag ? "expanded" : ""}`}>
                     <div className={`hero-avatar affinity-${hero.affinity}`}>{AFFINITIES[hero.affinity].mark}<small>{ROLES[hero.role].mark}</small></div>
@@ -941,6 +946,17 @@ export default function Home() {
                           </div>;
                         })}
                       </div>
+                      {artifacts.length > 0 && hero.hp > 0 && <button
+                        type="button"
+                        className={showRelicBag ? "relic-manage active" : "relic-manage"}
+                        onClick={() => {
+                          setDeleteRelicMode(false);
+                          setInspectedArtifactId(null);
+                          setRelicBagHeroId((current) => current === hero.id ? null : hero.id);
+                        }}
+                      >
+                        {showRelicBag ? "가방 닫기" : "유물 장착"}
+                      </button>}
                       {showRelicBag && <div className={`relic-bag ${deleteRelicMode ? "delete-mode" : ""}`}>
                         <div className="relic-bag-head">
                           <span>{deleteRelicMode ? "버릴 유물 선택" : `가방 ${unequippedArtifacts.length}`}</span>
