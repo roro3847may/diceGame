@@ -120,13 +120,13 @@ const artifactValueLabel = (artifact: Artifact) => {
 };
 const makeArtifact = (stage: number, wave: number): Artifact => {
   const kind = (["xp", "revive", "vigor", "shield", "strike", "mending", "ward", "focus"] as ArtifactKind[])[randomInt(0, 7)];
-  const tier = Math.max(1, Math.floor((stage + wave) / 3));
+  const tier = clamp(Math.floor((stage - 1) / 3) + Math.floor((wave - 1) / 3), 0, 8);
   let value = 1;
-  if (kind === "xp") value = Number((1.12 + randomInt(0, 10) / 100 + tier * 0.02).toFixed(2));
-  else if (kind === "revive") value = randomInt(2 + tier, 4 + tier * 2);
-  else if (kind === "vigor") value = randomInt(3 + tier, 5 + tier * 2);
-  else if (kind === "ward") value = randomInt(1 + Math.floor(tier / 2), 2 + tier);
-  else value = randomInt(1 + Math.floor(tier / 2), 2 + tier);
+  if (kind === "xp") value = Number((1.05 + randomInt(0, 6) / 100 + tier * 0.018).toFixed(2));
+  else if (kind === "revive") value = randomInt(1 + Math.floor(tier / 2), 2 + tier);
+  else if (kind === "vigor") value = randomInt(1 + tier, 3 + tier * 2);
+  else if (kind === "ward") value = randomInt(1, 1 + Math.ceil(tier / 2));
+  else value = randomInt(1, 1 + Math.ceil(tier / 2));
 
   const text: Record<ArtifactKind, string> = {
     xp: `경험치 획득 ${value.toFixed(2)}배`,
@@ -486,8 +486,9 @@ export default function Home() {
     appendLog(`${activeHero.name}이 수호막을 펼쳤습니다.`);
   };
 
-  const dropArtifact = (reason: string, guaranteed = false) => {
-    if (!guaranteed && randomInt(1, 100) > 45) return;
+  const dropArtifact = (reason: string, bonusChance = 0) => {
+    const chance = clamp(22 + Math.floor(stage / 3) + bonusChance, 18, 38);
+    if (randomInt(1, 100) > chance) return;
     const artifact = makeArtifact(stage, wave);
     setArtifacts((current) => [artifact, ...current].slice(0, 18));
     appendLog(`${reason}: 유물 획득 - ${artifact.name} ${artifactValueLabel(artifact)}`);
@@ -631,7 +632,7 @@ export default function Home() {
 
     const clearXp = Math.floor(10 + stage * 5 + totalWaves * 2);
     gainPartyXp(clearXp, `스테이지 ${stage} 클리어`);
-    dropArtifact("스테이지 보상", true);
+    dropArtifact("스테이지 보상", 12);
     const nextStageNumber = stage + 1;
     const nextStage = makeStage(nextStageNumber, partySize);
     setStage(nextStageNumber);
@@ -772,6 +773,8 @@ export default function Home() {
       if (revived) attackLogs.push(`${target.name}의 유물이 깨지며 즉시 부활.`);
       attackLogs.push(`${enemy.name} -> ${target.name} ${reduced} 피해.`);
     }
+
+    nextHeroes = nextHeroes.map((hero) => ({ ...hero, shield: 0 }));
 
     if (nextHeroes.every((hero) => hero.hp <= 0)) {
       showEnemyAttackCue(attackedHeroIds);
@@ -1108,8 +1111,8 @@ export default function Home() {
             <span className="chapter-mark">VERSION 1</span>
             <h2 id="rules-title">규칙 요약</h2>
             <div className="rules-grid">
-              <article><b>순서</b><p>위 캐릭터부터 행동하고, 적은 항상 가장 위의 생존 캐릭터를 공격합니다. 아무도 행동 전이면 순서 변경 가능.</p></article>
-              <article><b>직업</b><p>탱커는 본인 실드, 딜러는 주사위만큼 공격, 힐러는 아군을 회복합니다.</p></article>
+              <article><b>순서</b><p>위 캐릭터부터 행동하고, 적은 항상 가장 위의 생존 캐릭터를 공격합니다. 내 턴에는 행동 대기 중 언제든 순서 변경 가능.</p></article>
+              <article><b>직업</b><p>탱커는 다음 적 턴까지만 유지되는 실드, 딜러는 주사위만큼 공격, 힐러는 아군을 회복합니다.</p></article>
               <article><b>성장</b><p>막타, 웨이브, 스테이지로 경험치를 얻고 레벨마다 최종 주사위와 최대 체력이 증가합니다.</p></article>
               <article><b>유물</b><p>유물은 캐릭터당 2개까지 장착합니다. 내 턴에는 언제든 교체 가능하며, 대부분 패시브로 작동합니다.</p></article>
             </div>
