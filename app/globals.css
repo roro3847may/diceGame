@@ -509,7 +509,15 @@ button:not(:disabled):active { transform: translateY(1px); }
   gap: 5px;
   margin-top: 6px;
 }
-.hero-relics button {
+.relic-slot,
+.relic-choice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px;
+  gap: 4px;
+  min-width: 0;
+}
+.relic-slot .relic-main,
+.relic-choice .relic-main {
   min-height: 24px;
   border: 1px dashed #4c4f44;
   background: #13150f;
@@ -520,10 +528,25 @@ button:not(:disabled):active { transform: translateY(1px); }
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  cursor: pointer;
 }
-.hero-relics button.filled {
+.relic-slot.filled .relic-main {
   border-style: solid;
   border-color: #806e47;
+  color: var(--gold-bright);
+}
+.relic-info {
+  min-height: 24px;
+  border: 1px solid #4b4e43;
+  background: #20221c;
+  color: #cfc7b9;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.relic-info.active {
+  border-color: var(--gold);
+  background: #3a301e;
   color: var(--gold-bright);
 }
 .relic-bag {
@@ -572,22 +595,43 @@ button:not(:disabled):active { transform: translateY(1px); }
   overflow-y: auto;
   padding-right: 2px;
 }
-.relic-equip-row button {
+.relic-choice {
   flex: 0 1 calc(50% - 3px);
+}
+.relic-choice .relic-main {
   border: 1px solid #4b4e43;
   background: #20221c;
   color: #d6d0c4;
-  min-height: 24px;
-  padding: 0 7px;
-  font-size: 10px;
+}
+.relic-choice.delete-pick .relic-main {
+  border-color: #7a463b;
+  background: #2b1814;
+  color: #ffd2c5;
+}
+.relic-description {
+  margin-top: 7px;
+  border: 1px solid rgba(210, 174, 99, .42);
+  border-radius: 10px;
+  background: rgba(30, 28, 19, .92);
+  padding: 8px 9px;
+  animation: fadeUp .16s ease both;
+}
+.relic-description b,
+.relic-description span {
+  display: block;
+}
+.relic-description b {
+  color: var(--gold-bright);
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.relic-equip-row button.delete-pick {
-  border-color: #7a463b;
-  background: #2b1814;
-  color: #ffd2c5;
+.relic-description span {
+  margin-top: 4px;
+  color: #c8c0b2;
+  font-size: 11px;
+  line-height: 1.45;
 }
 .relic-empty {
   margin: 4px 0 1px;
