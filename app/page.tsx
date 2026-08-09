@@ -48,6 +48,7 @@ type PendingPerk = {
 
 type RollState = {
   heroId: string;
+  base: number;
   value: number;
   detail: string;
   mode: "normal" | "guard";
@@ -65,7 +66,7 @@ type Artifact = {
 const AFFINITIES: Record<Affinity, { label: string; die: string; mark: string; desc: string }> = {
   physical: { label: "물리", die: "D6+1", mark: "힘", desc: "D6+1" },
   agility: { label: "민첩", die: "D4+", mark: "속", desc: "D4, 1이 아니면 한 번 더" },
-  magic: { label: "마법", die: "복사", mark: "술", desc: "직전 최종값 복사" },
+  magic: { label: "마법", die: "복사", mark: "술", desc: "직전 기본 주사위 복사" },
 };
 
 const ROLES: Record<Role, { label: string; mark: string }> = {
@@ -76,7 +77,7 @@ const ROLES: Record<Role, { label: string; mark: string }> = {
 
 const PERKS: Record<Role, Record<1 | 2 | 3, { title: string; ranks: [string, string] }>> = {
   tank: {
-    1: { title: "후열 보호", ranks: ["바로 뒤 1명에게 같은 실드", "바로 뒤 2명에게 같은 실드"] },
+    1: { title: "후열지원", ranks: ["다음 캐릭터 기본 주사위 +본인 주사위", "다음 캐릭터 기본 주사위 +본인 주사위 1.5배"] },
     2: { title: "두꺼운 방패", ranks: ["실드량 1.5배", "실드량 2배"] },
     3: { title: "수호막", ranks: ["스테이지당 1회 공격 무마", "스테이지당 2회 공격 무마"] },
   },
@@ -316,8 +317,10 @@ export default function Home() {
   const [resumeEnemyTurnAfterPerk, setResumeEnemyTurnAfterPerk] = useState(false);
   const [inspectedArtifactId, setInspectedArtifactId] = useState<string | null>(null);
   const [relicBagHeroId, setRelicBagHeroId] = useState<string | null>(null);
+  const [rollSupport, setRollSupport] = useState<{ heroId: string; amount: number } | null>(null);
   const lootCueTimer = useRef<number | null>(null);
   const enemyCueTimer = useRef<number | null>(null);
+  const choosingPerkRef = useRef(false);
   const cueSerial = useRef(0);
 
   const livingHeroes = useMemo(() => heroes.filter((hero) => hero.hp > 0), [heroes]);
@@ -394,6 +397,7 @@ export default function Home() {
     setLastRoll(null);
     setPendingPerks([]);
     setResumeEnemyTurnAfterPerk(false);
+    setRollSupport(null);
     setLog([`스테이지 1, 웨이브 1/${nextStage.totalWaves} 시작.`, "위에 있는 캐릭터부터 행동합니다."]);
     setShowRules(false);
     setDeleteRelicMode(false);
@@ -450,8 +454,11 @@ export default function Home() {
       base = lastRoll ?? 1;
       detail = lastRoll === null ? "복사값 없음: 1" : `직전값 ${lastRoll}`;
     }
-    const value = base + hero.level - 1 + artifactSum(hero, artifacts, "focus");
-    return { base, value, detail: `${detail} + 레벨 ${hero.level - 1}` };
+    const support = rollSupport?.heroId === hero.id ? rollSupport.amount : 0;
+    const supportedBase = base + support;
+    const value = supportedBase + hero.level - 1 + artifactSum(hero, artifacts, "focus");
+    const supportDetail = support > 0 ? ` + 후열지원 ${support}` : "";
+    return { base, value, detail: `${detail}${supportDetail} + 레벨 ${hero.level - 1}` };
   };
 
   const rollForHero = () => {
@@ -465,8 +472,9 @@ export default function Home() {
         window.clearInterval(roller);
         const result = rollValue(activeHero);
         setRollingValue(null);
-        setRolled({ heroId: activeHero.id, value: result.value, detail: result.detail, mode: "normal" });
+        setRolled({ heroId: activeHero.id, base: result.base, value: result.value, detail: result.detail, mode: "normal" });
         setLastRoll(result.base);
+        setRollSupport((current) => current?.heroId === activeHero.id ? null : current);
         if (activeHero.role === "healer") {
           setSelectedAlly(livingHeroes[0]?.id ?? activeHero.id);
           setMultiTargets([livingHeroes[0]?.id ? livingHeroes[0].id : activeHero.id]);
@@ -482,7 +490,7 @@ export default function Home() {
   const useGuard = () => {
     if (!activeHero || activeHero.role !== "tank" || activeHero.id !== currentHero?.id || activeHero.guardCharges <= 0 || rolled || rollingValue !== null) return;
     setHeroes((current) => current.map((hero) => hero.id === activeHero.id ? { ...hero, guardCharges: hero.guardCharges - 1, guarded: true } : hero));
-    setRolled({ heroId: activeHero.id, value: 0, detail: "다음 공격 1회 무마", mode: "guard" });
+    setRolled({ heroId: activeHero.id, base: 0, value: 0, detail: "다음 공격 1회 무마", mode: "guard" });
     appendLog(`${activeHero.name}이 수호막을 펼쳤습니다.`);
   };
 
@@ -592,6 +600,7 @@ export default function Home() {
 
   const skipHeroAction = () => {
     if (!activeHero || rolled || rollingValue !== null) return;
+    setRollSupport((current) => current?.heroId === activeHero.id ? null : current);
     appendLog(`${activeHero.name} 행동을 넘겼습니다.`);
     endHeroAction();
   };
@@ -605,6 +614,7 @@ export default function Home() {
     setSelectedAlly(null);
     setMultiTargets([]);
     setHealerMode("heal");
+    setRollSupport(null);
   };
 
   const checkWaveEnd = (nextEnemies: Enemy[], killer?: Hero) => {
@@ -665,13 +675,12 @@ export default function Home() {
       let shield = rolled.value + artifactSum(activeHero, artifacts, "shield");
       if (activeHero.perks[2] === 1) shield = Math.floor(shield * 1.5);
       if (activeHero.perks[2] === 2) shield = shield * 2;
-      const activeIndex = heroes.findIndex((hero) => hero.id === activeHero.id);
-      const protectedIds = [activeHero.id];
-      if (activeHero.perks[1] >= 1 && heroes[activeIndex + 1]?.hp > 0) protectedIds.push(heroes[activeIndex + 1].id);
-      if (activeHero.perks[1] >= 2 && heroes[activeIndex + 2]?.hp > 0) protectedIds.push(heroes[activeIndex + 2].id);
-      const nextHeroes = heroes.map((hero) => protectedIds.includes(hero.id) ? { ...hero, shield: hero.shield + shield } : hero);
+      const nextSupportTarget = heroes.find((hero) => hero.id !== activeHero.id && hero.hp > 0 && !acted.includes(hero.id));
+      const supportAmount = activeHero.perks[1] === 2 ? Math.floor(rolled.base * 1.5) : activeHero.perks[1] === 1 ? rolled.base : 0;
+      if (nextSupportTarget && supportAmount > 0) setRollSupport({ heroId: nextSupportTarget.id, amount: supportAmount });
+      const nextHeroes = heroes.map((hero) => hero.id === activeHero.id ? { ...hero, shield: hero.shield + shield } : hero);
       setHeroes(nextHeroes);
-      appendLog(`${activeHero.name} 실드 +${shield}${protectedIds.length > 1 ? `, 후열 ${protectedIds.length - 1}명 보호` : ""}`);
+      appendLog(`${activeHero.name} 실드 +${shield}${nextSupportTarget && supportAmount > 0 ? `, ${nextSupportTarget.name} 주사위 +${supportAmount}` : ""}`);
       endHeroAction(nextHeroes);
       return;
     }
@@ -791,6 +800,7 @@ export default function Home() {
     playSfx("enemy");
     setArtifacts(nextArtifacts);
     setActed([]);
+    setRollSupport(null);
     setSelectedHero(nextHeroes.find((hero) => hero.hp > 0)?.id ?? null);
     setLog((current) => ["적 턴 종료.", ...attackLogs.reverse(), ...current].slice(0, 12));
   };
@@ -814,11 +824,19 @@ export default function Home() {
   };
 
   const choosePerk = (pending: PendingPerk, perk: 1 | 2 | 3) => {
+    if (choosingPerkRef.current) return;
+    choosingPerkRef.current = true;
     const hero = heroes.find((candidate) => candidate.id === pending.heroId);
-    if (!hero) return;
+    if (!hero) {
+      choosingPerkRef.current = false;
+      return;
+    }
     playChord([587, 740, 880], 0.11, 0.02);
     const currentRank = hero.perks[perk];
-    if (currentRank >= 2) return;
+    if (currentRank >= 2) {
+      choosingPerkRef.current = false;
+      return;
+    }
     setHeroes((current) => current.map((candidate) => candidate.id === hero.id ? {
       ...candidate,
       perks: { ...candidate.perks, [perk]: (currentRank + 1) as 1 | 2 },
@@ -835,6 +853,9 @@ export default function Home() {
         window.setTimeout(() => enemyTurn(), 0);
       }
     }
+    window.setTimeout(() => {
+      choosingPerkRef.current = false;
+    }, 120);
   };
 
   const activePending = pendingPerks[0];
